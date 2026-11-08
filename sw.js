@@ -2,14 +2,16 @@
    sw.js: the service worker. It keeps a copy of the app on the device so it
    works with no internet at all.
 
-   The saved copy opens instantly, and when there is internet a fresher copy
-   is fetched quietly in the background. So after you change something and
-   upload it, open the app, close it, and open it again to see the change.
+   With internet, the app opens the newest version straight away. With no
+   internet or a very slow connection, it opens the saved copy instead.
 
    If you ever add a new file to the project, add it to this list too.
    ========================================================================== */
 
 const CACHE_NAME = "coffee-corner";
+
+// How long to wait for the internet (ms) before using the saved copy
+const NETWORK_WAIT = 2000;
 
 const FILES = [
   "./",
@@ -50,7 +52,7 @@ self.addEventListener("fetch", (event) => {
   const request = event.request;
   if (request.method !== "GET" || !request.url.startsWith(self.location.origin)) return;
 
-  // Fetch a fresh copy in the background and keep it for next time
+  // Fetch a fresh copy and keep it for when there is no internet
   const fresh = fetch(request, { cache: "no-cache" }).then(async (response) => {
     if (response.ok) {
       const cache = await caches.open(CACHE_NAME);
@@ -61,6 +63,13 @@ self.addEventListener("fetch", (event) => {
 
   event.waitUntil(fresh.catch(() => {}));
   event.respondWith((async () => {
+    try {
+      const tooSlow = new Promise((resolve) => setTimeout(resolve, NETWORK_WAIT, null));
+      const response = await Promise.race([fresh, tooSlow]);
+      if (response && response.ok) return response;
+    } catch (error) {
+      // no internet: use the saved copy below
+    }
     const saved = await caches.match(request, { ignoreSearch: true })
       || (request.mode === "navigate" ? await caches.match("index.html") : undefined);
     return saved || fresh;
