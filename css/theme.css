@@ -1,0 +1,78 @@
+/* ==========================================================================
+   theme.css: fonts and colors.
+   This is the best file to tweak. Change a color code here and it changes
+   everywhere in the app.
+   ========================================================================== */
+
+/* --- Fonts (stored in the /fonts folder, so they work offline) ----------- */
+@font-face {
+  font-family: "Instrument Sans"; font-weight: 400; font-display: block;
+  src: url("../fonts/instrument-sans-latin-400.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Instrument Sans"; font-weight: 400; font-display: block;
+  src: url("../fonts/instrument-sans-latin-ext-400.woff2") format("woff2");
+  unicode-range: U+0100-02AF, U+1E00-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "Instrument Sans"; font-weight: 500; font-display: block;
+  src: url("../fonts/instrument-sans-latin-500.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Instrument Sans"; font-weight: 500; font-display: block;
+  src: url("../fonts/instrument-sans-latin-ext-500.woff2") format("woff2");
+  unicode-range: U+0100-02AF, U+1E00-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "Architects Daughter"; font-weight: 400; font-display: block;
+  src: url("../fonts/architects-daughter-latin-400.woff2") format("woff2");
+}
+
+:root {
+  /* --- Your base palette (all year) -------------------------------------- */
+  --oat-milk: #F5EEE4;
+  --foam:     #E7D9C6;
+  --caramel:  #C08A5B;
+  --matcha:   #8E9B6A;
+  --mocha:    #7A5642;
+  --espresso: #3A2921;
+
+  /* --- Fonts ------------------------------------------------------------- */
+  --font-main: "Instrument Sans", sans-serif;
+  --font-hand: "Architects Daughter", cursive;
+
+  /* --- What each color is used for (light background) -------------------- */
+  --page:     var(--oat-milk);   /* main paper */
+  --card:     var(--foam);       /* cards and secondary background */
+  --ink:      var(--espresso);   /* main text */
+  --ink-soft: var(--mocha);      /* secondary text */
+  --hand:     var(--caramel);    /* handwritten text and dividers */
+  --shadow:   rgba(58, 41, 33, .14);
+
+  /* --- Very faint paper grain. Lower .05 for less, raise it for more ----- */
+  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='320' height='320'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3'/%3E%3CfeColorMatrix values='0 0 0 0 .35 0 0 0 0 .24 0 0 0 0 .16 0 0 0 .05 0'/%3E%3C/filter%3E%3Crect width='320' height='320' filter='url(%23n)'/%3E%3C/svg%3E");
+
+  /* --- Animation speed for changing screens ------------------------------ */
+  --slow: .9s;
+}
+
+/* --- Seasonal accents ----------------------------------------------------
+   --s1, --s2, --s3 are the three seasonal colors.
+   --accent is the one used for thin lines, so it has to stay visible.      */
+[data-season="autumn"] { --s1: #C9733E; --s2: #8E4A2F; --s3: #D9A45B; --accent: #C9733E; } /* pumpkin, cinnamon, maple */
+[data-season="winter"] { --s1: #3F5A4C; --s2: #8F3A3E; --s3: #DCE3E1; --accent: #3F5A4C; } /* pine, cranberry, frost */
+[data-season="spring"] { --s1: #E8BDB5; --s2: #B8A9C9; --s3: #A9BC7F; --accent: #B8A9C9; } /* sakura, lavender, fresh matcha */
+[data-season="summer"] { --s1: #F0B48E; --s2: #E8CF7C; --s3: #A9C7CC; --accent: #F0B48E; } /* peach, lemon, iced */
+
+/* --- Dark background for evening shots ----------------------------------- */
+[data-background="dark"] {
+  --page:     var(--espresso);
+  --card:     #4A362B;           /* a slightly lighter espresso */
+  --ink:      var(--oat-milk);
+  --ink-soft: var(--foam);       /* mocha would be unreadable on espresso */
+  --shadow:   rgba(35, 24, 19, .35);
+}
+/* Pine disappears on espresso, so winter lines use frost in the evening */
+[data-background="dark"][data-season="winter"] { --accent: #DCE3E1; }

@@ -1,0 +1,96 @@
+/* ==========================================================================
+   edit.css: the edit panel. It never appears on camera, so it stays plain
+   and always uses the light colors.
+   ========================================================================== */
+
+#edit {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  touch-action: manipulation;
+  background: var(--oat-milk);
+  color: var(--espresso);
+  font-size: 17px;
+  line-height: 1.35;
+  cursor: auto;
+  animation: edit-in .6s ease-in-out;
+}
+@keyframes edit-in { from { opacity: 0; } to { opacity: 1; } }
+
+.e-top {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--oat-milk);
+  padding: calc(env(safe-area-inset-top) + 12px) 20px 10px;
+  border-bottom: 1px solid var(--foam);
+}
+.e-top-inner, .e-body { max-width: 680px; margin: 0 auto; }
+.e-top-inner { display: flex; align-items: center; gap: 8px; }
+.e-tabs { display: flex; gap: 4px; flex: 1; overflow-x: auto; }
+.e-tab {
+  min-height: 46px; padding: 0 14px; border: 0; border-radius: 12px;
+  background: transparent; color: var(--mocha); font: inherit; font-weight: 500;
+}
+.e-tab.on { background: var(--foam); color: var(--espresso); }
+
+.e-body { padding: 20px 20px calc(env(safe-area-inset-bottom) + 60px); }
+.e-section { margin-bottom: 28px; }
+.e-section h2 { font-size: 17px; font-weight: 500; margin-bottom: 10px; }
+.e-hint { color: var(--mocha); font-size: 15px; margin: 6px 0 12px; }
+.e-status { color: var(--mocha); font-size: 15px; margin-top: 10px; min-height: 20px; }
+
+.e-field { display: block; margin-bottom: 14px; }
+.e-field > span { display: block; font-size: 15px; color: var(--mocha); margin-bottom: 5px; }
+
+/* 17px text stops the iPad zooming in when you tap a field */
+.e-input, .e-select {
+  width: 100%; min-height: 48px; padding: 0 14px;
+  border: 1px solid var(--foam); border-radius: 12px;
+  background: #FBF7F0; color: var(--espresso);
+  font: inherit; -webkit-appearance: none; appearance: none;
+  -webkit-user-select: text; user-select: text;
+}
+.e-input:focus, .e-select:focus { outline: 2px solid var(--caramel); outline-offset: -1px; }
+.e-at { position: relative; }
+.e-at i { position: absolute; left: 14px; top: 13px; font-style: normal; color: var(--mocha); }
+.e-at .e-input { padding-left: 32px; }
+
+.e-row { display: flex; gap: 10px; align-items: flex-end; }
+.e-row > .e-grow { flex: 1; min-width: 0; }
+.e-row .e-field { margin-bottom: 0; }
+
+.e-btn {
+  min-height: 48px; padding: 0 18px; border: 0; border-radius: 12px;
+  background: var(--foam); color: var(--espresso); font: inherit; font-weight: 500;
+  flex: none;
+}
+.e-btn.primary { background: var(--espresso); color: var(--oat-milk); }
+.e-btn.wide { width: 100%; }
+.e-btn.danger { background: transparent; color: #8F3A3E; }
+
+.e-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 16px; }
+.e-chip {
+  min-height: 42px; padding: 0 14px; border: 1px solid var(--foam); border-radius: 21px;
+  background: transparent; color: var(--mocha); font: inherit; font-size: 15px;
+}
+.e-chip.on { background: var(--caramel); border-color: var(--caramel); color: var(--espresso); }
+
+.e-switch { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 50px; }
+.e-switch input { width: 26px; height: 26px; accent-color: var(--caramel); flex: none; }
+
+.e-range { width: 100%; height: 44px; accent-color: var(--caramel); }
+
+.e-drink { background: var(--foam); border-radius: 14px; margin-bottom: 10px; }
+.e-drink-head {
+  width: 100%; min-height: 60px; padding: 8px 16px; border: 0; background: transparent;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  font: inherit; color: var(--espresso); text-align: left;
+}
+.e-drink-head small { color: var(--mocha); font-size: 14px; flex: none; }
+.e-drink-form { padding: 4px 16px 16px; }
+.e-drink-form .e-input, .e-drink-form .e-select { border-color: transparent; }
+.e-drink-form .e-chip { border-color: var(--caramel); }

@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en" data-season="autumn" data-background="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <title>the little nook</title>
+
+  <!-- These make it run fullscreen once added to the iPad home screen -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="little nook">
+  <meta name="theme-color" content="#F5EEE4">
+
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icons/icon-180.png">
+  <link rel="icon" href="icons/icon-192.png">
+
+  <link rel="stylesheet" href="css/theme.css">
+  <link rel="stylesheet" href="css/screens.css">
+  <link rel="stylesheet" href="css/edit.css">
+</head>
+<body>
+  <!-- The posters you film. Filled in by js/screens.js -->
+  <main id="stage"></main>
+
+  <!-- The edit panel, opened by a long press. Filled in by js/edit.js -->
+  <div id="edit" hidden></div>
+
+  <script src="js/defaults.js"></script>
+  <script src="js/storage.js"></script>
+  <script src="js/ambient.js"></script>
+  <script src="js/screens.js"></script>
+  <script src="js/edit.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

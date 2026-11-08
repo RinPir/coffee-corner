@@ -1,0 +1,261 @@
+/* ==========================================================================
+   screens.css: how each full-screen poster looks.
+   ========================================================================== */
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+[hidden] { display: none !important; }
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+  background: var(--page);
+  color: var(--ink);
+  font-family: var(--font-main);
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+body { position: fixed; inset: 0; }
+
+/* Show mode: nothing that looks like an app. No cursor, no text selection,
+   no iPad pop-ups, and the browser doesn't react to swipes itself. */
+#stage {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  cursor: none;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  /* All poster text is sized from this one number. --text-size is the slider. */
+  font-size: calc(min(100vw, 100vh) * .025 * var(--text-size, 1));
+}
+
+/* --- Each screen sits on top of the others and fades in and out ---------- */
+.screen {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateX(var(--off, 4%));
+  transition: opacity var(--slow) ease-in-out,
+              transform var(--slow) ease-in-out,
+              visibility 0s linear var(--slow);
+  background-image: var(--grain);
+}
+.screen.is-active {
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+  transition: opacity var(--slow) ease-in-out,
+              transform var(--slow) ease-in-out;
+}
+
+/* --- Shared text styles --------------------------------------------------- */
+.title {
+  font-weight: 500;
+  text-transform: lowercase;
+  letter-spacing: -.025em;
+  line-height: 1.05;
+  overflow-wrap: anywhere;
+}
+.hand { font-family: var(--font-hand); color: var(--hand); line-height: 1.3; overflow-wrap: anywhere; }
+.heart { display: inline-block; width: .85em; height: .85em; vertical-align: -.08em; }
+.decor { display: block; }
+.decor svg { display: block; width: 100%; height: auto; overflow: visible; }
+
+/* The content of a poster shrinks a little by itself if it would not fit.
+   js/screens.js sets --fit. */
+.fit-area { display: flex; align-items: center; justify-content: center; }
+.fit-content { flex: none; font-size: calc(1em * var(--fit, 1)); }
+
+
+/* --- 1. Menu board: an oat paper card lying on a foam surface ------------- */
+.screen-menu { background-color: var(--card); }
+
+.sheet {
+  position: absolute;
+  top: max(5vmin, calc(env(safe-area-inset-top) + 1.5vmin));
+  bottom: max(5vmin, calc(env(safe-area-inset-bottom) + 1.5vmin));
+  left: max(5vmin, env(safe-area-inset-left));
+  right: max(5vmin, env(safe-area-inset-right));
+  background-color: var(--page);
+  background-image: var(--grain);
+  box-shadow: 0 .6vmin 3vmin var(--shadow);
+  border-radius: .4vmin;
+}
+/* the thin printed frame around the menu */
+.sheet::after {
+  content: "";
+  position: absolute;
+  inset: 1.6vmin;
+  border: 1px solid var(--hand);
+  opacity: .45;
+  pointer-events: none;
+}
+.sheet .fit-area { position: absolute; inset: 5vmin; }
+
+.menu { width: 100%; }
+.menu-head { text-align: center; }
+.menu-head .title { font-size: 4.4em; }
+.menu-head .hand  { font-size: 1.7em; margin-top: .45em; }
+.menu-head .decor { width: 5.5em; margin: 1.4em auto 0; }
+
+.menu-list { list-style: none; margin-top: 3em; padding: 0 3%; }
+.menu-list li + li { margin-top: 1.7em; }
+.menu-row { display: flex; align-items: baseline; gap: .6em; }
+.menu-name { font-size: 1.75em; font-weight: 500; text-transform: lowercase; letter-spacing: -.015em; overflow-wrap: anywhere; }
+.menu-dots { flex: 1 1 1.5em; min-width: 1.5em; border-bottom: .2em dotted var(--ink-soft); opacity: .85; transform: translateY(-.25em); }
+.menu-price { font-size: 1.5em; flex: 0 1 auto; max-width: 48%; text-align: right; }
+.menu-desc { margin-top: .25em; font-size: 1.15em; color: var(--ink-soft); line-height: 1.3; }
+.menu-empty { text-align: center; font-size: 1.6em; }
+/* Landscape: café name on the left, drinks on the right */
+@media (orientation: landscape) {
+  .menu { display: grid; grid-template-columns: 33% 1fr; align-items: center; }
+  .menu-head { padding-right: 5%; }
+  .menu-head .title { font-size: 3.7em; }
+  .menu-list { margin-top: 0; padding: .5em 1% .5em 5%; border-left: 1px solid color-mix(in srgb, var(--hand) 45%, transparent); }
+  .menu-name { font-size: 1.65em; }
+  .menu-price { font-size: 1.4em; max-width: 42%; }
+}
+
+
+/* --- 2. Order card: a paper ticket on the oat background ------------------ */
+.screen-order { background-color: var(--page); }
+.screen-order .fit-area {
+  position: absolute;
+  top: max(5vmin, calc(env(safe-area-inset-top) + 2vmin));
+  bottom: max(7vmin, calc(env(safe-area-inset-bottom) + 3vmin));
+  left: 5vmin;
+  right: 5vmin;
+}
+/* The first four shadows draw a thin caramel outline that follows the scallops.
+   The last one is the soft shadow under the paper. */
+.ticket-wrap {
+  filter: drop-shadow(.15vmin 0 0 var(--caramel)) drop-shadow(-.15vmin 0 0 var(--caramel))
+          drop-shadow(0 .15vmin 0 var(--caramel)) drop-shadow(0 -.15vmin 0 var(--caramel))
+          drop-shadow(0 .5vmin 1.6vmin var(--shadow));
+}
+.ticket {
+  position: relative;
+  width: 25em;
+  max-width: 100%;
+  padding: 2.6em 2.6em 2em;
+  background-color: var(--card);
+  background-image: var(--grain);
+  text-align: center;
+}
+/* the scalloped paper edge along the bottom */
+.ticket::after {
+  content: "";
+  position: absolute;
+  left: 0; right: 0; top: calc(100% - 1px);
+  height: 1.5em; /* scallop size: if you change it, change the numbers on the next line to match */
+  background: radial-gradient(circle at 50% 0, var(--card) 1.48em, transparent 1.5em) left top / 3em 1.5em round no-repeat;
+  background-repeat: round no-repeat;
+}
+.ticket-head  { display: flex; align-items: center; justify-content: center; gap: .55em; }
+.ticket-cafe  { font-size: 1.15em; color: var(--ink-soft); }
+.ticket-head .decor { width: 2.4em; }
+.ticket-meta  { display: flex; align-items: baseline; justify-content: space-between; gap: 1em; margin-top: 1.5em; }
+.ticket-label { font-size: 1.4em; }
+.ticket-no    { font-size: 1.5em; font-variant-numeric: tabular-nums; flex: none; }
+.ticket-no span { color: var(--accent); }
+[data-background="light"][data-season="spring"] .ticket-no span,
+[data-background="light"][data-season="summer"] .ticket-no span { color: var(--hand); } /* pale accents fade out on foam */
+.ticket-line  { border: 0; border-top: .11em dashed var(--hand); opacity: .6; margin: 1.5em 0; }
+.ticket-drink { font-size: 4.2em; }
+.ticket-for   { font-size: 2.1em; margin-top: .7em; }
+.ticket-note  { font-size: 1.4em; margin-top: .6em; color: var(--ink-soft); }
+
+
+/* --- 3. Drink of the day: resting on a round foam coaster ----------------- */
+.screen-pick { background-color: var(--page); }
+.coaster {
+  position: absolute;
+  left: 50%; top: 50%;
+  width: 84vmin; height: 84vmin;
+  margin: -42vmin 0 0 -42vmin;
+  border-radius: 50%;
+  background-color: var(--card);
+  background-image: var(--grain);
+  box-shadow: 0 .5vmin 2.4vmin var(--shadow);
+}
+.pick {
+  position: absolute;
+  left: 50%; top: 50%;
+  width: 66vmin; height: 66vmin;
+  margin: -33vmin 0 0 -33vmin;
+  text-align: center;
+}
+.pick .fit-content { width: 100%; }
+
+/* The three layers fade into each other */
+.pick-layer, .pick-reel-window { position: absolute; inset: 0; opacity: 0; transition: opacity 1.2s ease-in-out; }
+.pick[data-phase="idle"] .pick-idle,
+.pick[data-phase="spinning"] .pick-reel-window,
+.pick[data-phase="result"] .pick-result { opacity: 1; }
+
+.pick-idle-title { font-size: 5.4em; }
+
+/* The drifting names, fading out at the top and bottom */
+.pick-reel-window {
+  font-size: 3em;
+  --row: 1.7em;
+  top: 50%; bottom: auto;
+  height: calc(var(--row) * 3);
+  margin-top: calc(var(--row) * -1.5);
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(transparent, var(--espresso) 35%, var(--espresso) 65%, transparent);
+          mask-image: linear-gradient(transparent, var(--espresso) 35%, var(--espresso) 65%, transparent);
+}
+.pick-reel { transition: transform 7s cubic-bezier(.4, 0, .1, 1); will-change: transform; }
+.pick-row  { height: var(--row); line-height: var(--row); }
+.pick-row span { display: block; }
+
+.pick-result .fit-content { transform: translateY(1em); transition: transform 1.2s ease-in-out; }
+.pick[data-phase="result"] .pick-result .fit-content { transform: none; }
+.pick-label { font-size: 2em; }
+.pick-name  { margin-top: .25em; }
+.pick-desc  { font-size: 1.5em; margin-top: 1em; color: var(--ink-soft); }
+.pick-price { font-size: 1.9em; margin-top: .55em; }
+
+
+/* --- 4. Open / closed sign: a card hanging from a nail -------------------- */
+.screen-sign { background-color: var(--page); }
+.sign {
+  position: absolute;
+  left: 50%; top: 50%;
+  width: 72vmin;
+  transform: translate(-50%, -50%);
+  perspective: 180vmin;
+}
+.sign-string { display: block; width: 62%; margin: 0 auto -.3vmin; overflow: visible; }
+.sign-card {
+  position: relative;
+  height: 46vmin;
+  transform-style: preserve-3d;
+  -webkit-transform-style: preserve-3d;
+  transition: transform 1.2s ease-in-out;
+}
+.sign.is-closed .sign-card { transform: rotateY(180deg); }
+.sign-face {
+  position: absolute;
+  inset: 0;
+  border-radius: 1.4vmin;
+  background-image: var(--grain);
+  box-shadow: 0 .6vmin 2.6vmin var(--shadow), inset 0 0 0 .15vmin var(--hand);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  text-align: center;
+}
+.sign-front { background-color: var(--card); color: var(--ink); }
+.sign-back  { background-color: var(--ink); color: var(--page); transform: rotateY(180deg); }
+.sign-inner { position: absolute; inset: 3.5vmin 5vmin; }
+.sign-inner .fit-content { width: 100%; }
+.sign-note  { font-size: 2em; margin-top: .45em; }
+
+
+/* --- 5. Ambient scene: drawn by js/ambient.js ----------------------------- */
+.screen-ambient { background-color: var(--card); }
+.ambient-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
