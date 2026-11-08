@@ -13,8 +13,11 @@ const GESTURES = {
   tapMinTime: 60,         // a touch shorter than this (ms) is a brush, not a tap
   tapMaxTime: 600,        // a touch longer than this (ms) is a rest, not a tap
   holdTime: 2000,         // long press length (ms)
-  holdCorner: 150,        // size of the top-right corner area (px)
-  holdMaxMove: 10,        // the finger may wander this far (px) during a long press
+  holdCorner: 220,        // size of the top-right corner area (px)
+  holdMaxMove: 40,        // the finger may wander this far (px) during a long press
+  tapMaxMove: 10,         // a tap may wander this far (px)
+  cornerTaps: 3,          // this many quick taps in the corner also open edit mode...
+  cornerTapTime: 1000,    // ...if they all happen within this time (ms)
 };
 
 let activeScreenId = visibleScreens()[0].id;
@@ -69,6 +72,7 @@ function onEditClosed() {
 const fingers = new Set();
 let gesture = null;
 let holdTimer = null;
+let cornerTapTimes = [];  // when the recent taps in the corner happened
 
 function stopGesture() {
   clearTimeout(holdTimer);
@@ -95,12 +99,33 @@ window.addEventListener("pointerdown", (event) => {
   gesture = { id: event.pointerId, x: event.clientX, y: event.clientY, time: performance.now() };
 
   if (inHoldCorner(event.clientX, event.clientY)) {
-    holdTimer = setTimeout(() => {
-      stopGesture();
-      const screen = SCREENS.find((item) => item.id === activeScreenId);
-      openEdit(screen.editTab);
-    }, GESTURES.holdTime);
+    // Way two: a few quick taps in the corner
+    const now = performance.now();
+    cornerTapTimes = cornerTapTimes.filter((time) => now - time < GESTURES.cornerTapTime);
+    cornerTapTimes.push(now);
+    if (cornerTapTimes.length >= GESTURES.cornerTaps) { openEditHere(); return; }
+
+    // Way one: a long press
+    holdTimer = setTimeout(openEditHere, GESTURES.holdTime);
   }
+});
+
+function openEditHere() {
+  stopGesture();
+  cornerTapTimes = [];
+  const screen = SCREENS.find((item) => item.id === activeScreenId);
+  openEdit(screen.editTab);
+}
+
+// Tells the iPad that touches on the posters are ours, so its own long-press
+// handling can't interrupt them. The edit panel is not affected.
+document.getElementById("stage").addEventListener("touchstart", (event) => {
+  event.preventDefault();
+}, { passive: false });
+
+// If the iPad still interrupts a touch, this is how we learn the finger lifted
+window.addEventListener("touchend", (event) => {
+  if (event.touches.length === 0) clearTimeout(holdTimer);
 });
 
 window.addEventListener("pointermove", (event) => {
@@ -116,6 +141,7 @@ window.addEventListener("pointerup", (event) => {
   const dx = event.clientX - gesture.x;
   const dy = event.clientY - gesture.y;
   const duration = performance.now() - gesture.time;
+  const startedInCorner = inHoldCorner(gesture.x, gesture.y);
   stopGesture();
 
   const farEnough = Math.abs(dx) >= Math.max(GESTURES.swipeMinDistance, innerWidth * GESTURES.swipeMinShare);
@@ -125,15 +151,18 @@ window.addEventListener("pointerup", (event) => {
   if (farEnough && rightSpeed && straight) { changeScreen(dx < 0 ? 1 : -1); return; }
 
   // A tap: only for screens that use one, such as the sign
-  const stayedStill = Math.hypot(dx, dy) <= GESTURES.holdMaxMove;
+  // The corner is kept for opening edit mode, so taps there do nothing else.
+  const stayedStill = Math.hypot(dx, dy) <= GESTURES.tapMaxMove;
   const tapSpeed = duration >= GESTURES.tapMinTime && duration <= GESTURES.tapMaxTime;
   const screen = SCREENS.find((item) => item.id === activeScreenId);
-  if (stayedStill && tapSpeed && !isChanging && screen.onTap) screen.onTap();
+  if (stayedStill && tapSpeed && !isChanging && !startedInCorner && screen.onTap) screen.onTap();
 });
 
+// The iPad interrupted the touch. The long press keeps counting until the
+// finger really lifts (see "touchend" above).
 window.addEventListener("pointercancel", (event) => {
   fingers.delete(event.pointerId);
-  stopGesture();
+  gesture = null;
 });
 
 // No long-press pop-up menus anywhere in show mode
