@@ -45,6 +45,13 @@ function cleanState(raw) {
     signClosed: text(raw.signClosed, d.signClosed, 30),
     signClosedNote: text(raw.signClosedNote, d.signClosedNote, 50),
     signIsOpen: raw.signIsOpen !== false,
+    notes: (() => {
+      const notes = (Array.isArray(raw.notes) ? raw.notes : [])
+        .filter((note) => typeof note === "string" && note.trim())
+        .map((note) => note.slice(0, 100))
+        .slice(0, 40);
+      return notes.length ? notes : [...d.notes];
+    })(),
     labels: Object.fromEntries(Object.keys(d.labels).map((key) =>
       [key, text((raw.labels || {})[key], d.labels[key], 40)])),
     season: [...SEASONS, "auto"].includes(raw.season) ? raw.season : d.season,

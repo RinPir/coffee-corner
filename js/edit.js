@@ -141,6 +141,17 @@ function cafeView() {
       ${field("drink of the day, before the tap", "labels.pick", state.labels.pick)}
       ${field("drink of the day, above the result", "labels.today", state.labels.today)}
       ${field("menu with no drinks", "labels.empty", state.labels.empty)}
+      ${field("showcase button", "labels.shopButton", state.labels.shopButton)}
+      ${field("showcase button after the tap", "labels.shopAdded", state.labels.shopAdded)}
+      ${field("payment, before the tap", "labels.pay", state.labels.pay)}
+      ${field("payment, after the tap", "labels.paid", state.labels.paid)}
+      ${field("pour, before you start", "labels.pour", state.labels.pour)}
+      ${field("pour, when the cup is full", "labels.full", state.labels.full)}
+      ${field("after the order number", "labels.ready", state.labels.ready)}
+    </div>
+    <div class="e-section"><h2>notes in the cup</h2>
+      <p class="e-hint">One note per line.</p>
+      <textarea class="e-input e-area" data-field="notes">${esc(state.notes.join("\n"))}</textarea>
     </div>
     <div class="e-section"><h2>open / closed sign</h2>
       ${field("open side", "signOpen", state.signOpen)}
@@ -258,6 +269,7 @@ editPanel.addEventListener("input", (event) => {
   else if (name === "order.username") state.order.username = input.value.replace(/^@+/, "").trim();
   else if (name === "order.drink" || name === "order.note") state.order[name.split(".")[1]] = input.value;
   else if (name === "textSize") state.textSize = Number(input.value);
+  else if (name === "notes") state.notes = input.value.split("\n");
   else if (name && name.startsWith("labels.")) state.labels[name.split(".")[1]] = input.value;
   else if (["cafeName", "subtitle", "signOpen", "signOpenNote", "signClosed", "signClosedNote"].includes(name)) state[name] = input.value;
   else if (name && name.startsWith("drink.")) {

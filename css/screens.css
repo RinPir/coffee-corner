@@ -258,6 +258,192 @@ body { position: fixed; inset: 0; }
 .sign-note  { font-size: 2em; margin-top: .45em; }
 
 
-/* --- 5. Ambient scene: drawn by js/ambient.js ----------------------------- */
+/* --- Shared by the interactive screens ------------------------------------ */
+.screen-shop, .screen-pay, .screen-pour, .screen-ready, .screen-note { background-color: var(--page); }
+.stand {
+  position: absolute;
+  top: max(5vmin, calc(env(safe-area-inset-top) + 2vmin));
+  bottom: max(5vmin, calc(env(safe-area-inset-bottom) + 2vmin));
+  left: 5vmin; right: 5vmin;
+  text-align: center;
+}
+.cup-art { display: block; width: 100%; height: auto; overflow: visible; }
+
+/* --- Drink showcase -------------------------------------------------------- */
+.shop-stand { left: 16vmin; right: 16vmin; }
+.shop { width: 100%; }
+.shop-card {
+  padding: 3em 2.5em;
+  background-color: var(--card);
+  background-image: var(--grain);
+  border-radius: 1.4vmin;
+  box-shadow: 0 .6vmin 2.6vmin var(--shadow), inset 0 0 0 .15vmin var(--hand);
+  animation: shop-in .7s ease-in-out;
+}
+@keyframes shop-in { from { opacity: 0; transform: translateY(1.2vmin); } to { opacity: 1; transform: none; } }
+.shop-cup   { width: 11em; margin: 0 auto 1.8em; }
+.shop-name  { font-size: 3.8em; }
+.shop-desc  { font-size: 1.4em; margin-top: .7em; color: var(--ink-soft); }
+.shop-price { font-size: 1.9em; margin-top: .5em; }
+.shop-empty { font-size: 2em; }
+.shop-btn {
+  display: inline-block;
+  min-width: 9em;
+  margin-top: 1.1em;
+  padding: .55em 1.4em;
+  border-radius: 2em;
+  background: var(--ink);
+  color: var(--page);
+  font-size: 1.7em;
+  font-weight: 500;
+  transition: background-color .6s ease-in-out, color .6s ease-in-out;
+}
+.shop-btn.is-done { background: var(--caramel); color: var(--espresso); }
+.shop-arrow {
+  position: absolute;
+  top: 25%; bottom: 25%;
+  width: 16vmin;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--hand);
+}
+.shop-arrow svg { width: 8vmin; height: 8vmin; }
+.shop-prev { left: 0; }
+.shop-next { right: 0; }
+
+/* --- Paying with kisses: a small rounded terminal -------------------------- */
+.pay {
+  width: 25em;
+  padding: 3em 2.5em;
+  background-color: var(--card);
+  background-image: var(--grain);
+  border-radius: 3em;
+  box-shadow: 0 .6vmin 2.6vmin var(--shadow), inset 0 0 0 .15vmin var(--hand);
+}
+.pay-drink { font-size: 1.7em; color: var(--ink-soft); overflow-wrap: anywhere; }
+.pay-price { font-size: 4.2em; margin-top: .2em; min-height: 1.05em; }
+.pay-pad {
+  position: relative;
+  width: 15em; height: 15em;
+  margin: 2.2em auto 0;
+  border-radius: 50%;
+  background: var(--page);
+  box-shadow: inset 0 0 0 .15vmin var(--hand);
+}
+.pay-state {
+  position: absolute; inset: 1em;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .3em;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .8s ease-in-out;
+}
+.pay[data-phase="idle"] .pay-idle,
+.pay[data-phase="working"] .pay-working,
+.pay[data-phase="paid"] .pay-paid { opacity: 1; pointer-events: auto; }
+.pay-idle { font-size: 2em; }
+.pay-working { flex-direction: row; gap: 1em; }
+.pay-working i { width: 1em; height: 1em; border-radius: 50%; background: var(--hand); animation: pay-dot 1.2s ease-in-out infinite; }
+.pay-working i:nth-child(2) { animation-delay: .2s; }
+.pay-working i:nth-child(3) { animation-delay: .4s; }
+@keyframes pay-dot { 0%, 100% { opacity: .3; } 50% { opacity: 1; } }
+.pay-paid .heart { width: 6em; height: 6em; color: var(--accent); fill: var(--accent); }
+.pay[data-phase="paid"] .heart { animation: pay-heart .9s ease-in-out; }
+@keyframes pay-heart { 0% { transform: scale(.6); } 60% { transform: scale(1.1); } 100% { transform: scale(1); } }
+.pay-paid b { font-size: 2em; font-weight: 400; }
+
+/* --- Pour it yourself ------------------------------------------------------ */
+.pour {
+  position: absolute;
+  left: 50%; top: 56%;
+  width: 56vmin;
+  transform: translate(-50%, -50%);
+  text-align: center;
+}
+.pour-cup { position: relative; width: 42vmin; height: 38vmin; margin: 0 auto; }
+.pour-cup::after {
+  content: "";
+  position: absolute;
+  left: calc(100% - .6vmin); top: 16%;
+  width: 11vmin; height: 19vmin;
+  border: 1.6vmin solid var(--hand);
+  border-left: 0;
+  border-radius: 0 9vmin 9vmin 0;
+}
+.pour-inner {
+  position: absolute; inset: 0;
+  overflow: hidden;
+  background: var(--card);
+  border-radius: .8vmin .8vmin 16vmin 16vmin;
+  box-shadow: inset 0 0 0 .3vmin var(--hand);
+}
+.pour-fill {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  height: calc(var(--level) * .9%); /* stops a little below the rim, so the foam shows */
+  background: var(--mocha);
+  border-top: 1.4vmin solid var(--foam);
+}
+.pour-stream {
+  position: absolute;
+  z-index: 1;
+  left: 50%; top: -100vh; /* comes from above the top of the screen */
+  bottom: calc(var(--level) * .9%);
+  width: 2.2vmin;
+  margin-left: -1.1vmin;
+  border-radius: 1.1vmin;
+  background: var(--mocha);
+  opacity: 0;
+  transition: opacity .25s ease-in-out;
+}
+.pour[data-phase="pouring"] .pour-stream { opacity: 1; }
+.pour-hint {
+  position: absolute; left: 0; right: 0; top: calc(100% + 1em);
+  font-size: 2.4em;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .7s ease-in-out;
+}
+.pour[data-phase="empty"] .pour-hint-start,
+.pour[data-phase="full"] .pour-hint-full { opacity: 1; pointer-events: auto; }
+
+/* --- Order is ready: a counter bell ---------------------------------------- */
+.bell { display: block; width: 19em; margin: 0 auto; overflow: visible; transform-origin: 50% 85%; }
+.ready[data-phase="on"] .bell { animation: bell-ring 1.6s ease-in-out; }
+@keyframes bell-ring {
+  0%, 100% { transform: rotate(0); }
+  15% { transform: rotate(-7deg); } 35% { transform: rotate(6deg); }
+  55% { transform: rotate(-4deg); } 75% { transform: rotate(2deg); }
+}
+.ready-text { margin-top: 2.4em; opacity: 0; pointer-events: none; transform: translateY(1em); transition: opacity 1s ease-in-out .35s, transform 1s ease-in-out .35s; }
+.ready[data-phase="on"] .ready-text { opacity: 1; pointer-events: auto; transform: none; }
+.ready-number { font-size: 2.6em; font-variant-numeric: tabular-nums; }
+.ready-title  { font-size: 6.4em; margin-top: .1em; }
+
+/* --- A note in the cup ----------------------------------------------------- */
+.note {
+  position: absolute;
+  left: 50%; top: 50%;
+  width: 70vmin; height: 90vmin;
+  transform: translate(-50%, -50%);
+}
+.note-paper {
+  position: absolute;
+  left: 8vmin; right: 8vmin; top: 0; height: 48vmin;
+  padding: 4vmin;
+  background-color: var(--card);
+  background-image: var(--grain);
+  border-radius: .6vmin;
+  box-shadow: 0 .5vmin 2vmin var(--shadow), inset 0 0 0 .15vmin var(--hand);
+  text-align: center;
+  opacity: 0;
+  transform: translateY(34vmin) scale(.9);
+  pointer-events: none;
+  transition: transform 1.3s ease-in-out, opacity .9s ease-in-out;
+}
+.note[data-phase="out"] .note-paper { opacity: 1; transform: none; pointer-events: auto; }
+.note-paper .fit-content { width: 100%; }
+.note-text { font-size: 2.9em; color: var(--ink); }
+.note-cup { position: absolute; z-index: 1; left: 11vmin; right: 11vmin; bottom: 0; }
+
+
+/* --- 10. Ambient scene: drawn by js/ambient.js ----------------------------- */
 .screen-ambient { background-color: var(--card); }
 .ambient-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }

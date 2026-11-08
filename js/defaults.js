@@ -25,11 +25,34 @@ const DEFAULT_STATE = {
     pick: "drink of the day",
     today: "today's drink",
     empty: "back soon",
+    shopButton: "order",
+    shopAdded: "added ♡",
+    pay: "touch to pay",
+    paid: "paid",
+    pour: "hold to pour",
+    full: "all yours",
+    ready: "is ready",
   },
   season: "auto",          // autumn, winter, spring, summer or auto
   background: "light",     // light or dark
   textSize: 1,             // 1 is normal; the slider goes from 0.8 to 1.5
-  screens: { menu: true, order: true, pick: true, sign: true, ambient: true }, // which screens you can swipe to
+  screens: { menu: true, shop: true, order: true, pay: true, pour: true, ready: true, pick: true, note: true, sign: true, ambient: true }, // which screens you can swipe to
+
+  // The little notes that come out of the cup, one idea each
+  notes: [
+    "you are doing better than you think",
+    "drink this slowly",
+    "today is allowed to be small",
+    "someone is glad you exist",
+    "rest counts as doing something",
+    "the kettle believes in you",
+    "go outside for five minutes",
+    "text the friend you just thought of",
+    "you don't have to finish it all today",
+    "good things are on their way",
+    "be as kind to yourself as you are to your cup",
+    "this moment is enough",
+  ],
 
   order: {
     number: 1,

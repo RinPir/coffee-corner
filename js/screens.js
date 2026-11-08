@@ -56,8 +56,13 @@ function decor() {
 
 const SCREENS = [
   { id: "menu",  label: "menu board", editTab: "drinks", render: renderMenu },
+  { id: "shop",  label: "drink showcase", editTab: "drinks", render: renderShop, onTap: tapShop, onLeave: resetShop },
   { id: "order", label: "order card", editTab: "order",  render: renderOrder },
+  { id: "pay",   label: "pay with kisses", editTab: "order", render: renderPay, onTap: tapPay, onLeave: resetPay },
+  { id: "pour",  label: "pour it yourself", editTab: "cafe", render: renderPour, onTap: tapPour, onHold: startPour, onLeave: resetPour },
+  { id: "ready", label: "order is ready", editTab: "order", render: renderReady, onTap: tapReady, onLeave: resetReady },
   { id: "pick",  label: "drink of the day", editTab: "drinks", render: renderPick, onTap: tapPick, onLeave: resetPick },
+  { id: "note",  label: "note in the cup", editTab: "cafe", render: renderNote, onTap: tapNote, onLeave: resetNote },
   { id: "sign",  label: "open / closed sign", editTab: "cafe", render: renderSign, onTap: tapSign },
   { id: "ambient", label: "ambient scene", editTab: "cafe", render: renderAmbient },
 ];
@@ -242,6 +247,282 @@ function tapSign() {
   saveState();
   document.querySelector(".sign").classList.toggle("is-closed", !state.signIsOpen);
   setTimeout(() => { signIsFlipping = false; }, 1200);
+}
+
+// --- Shared drawing: a cup on a saucer ---------------------------------------
+
+function cupArt(color) {
+  return `<svg class="cup-art" viewBox="0 0 120 104" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <ellipse cx="56" cy="94" rx="50" ry="8" fill="var(--card)" stroke="var(--hand)" stroke-width="1.6"/>
+    <path d="M92 40h6c11 0 16 7 16 15s-7 15-18 15h-9" stroke="var(--hand)" stroke-width="5"/>
+    <path d="M18 28h76c0 32-5 62-38 62S18 60 18 28z" fill="var(--page)" stroke="var(--hand)" stroke-width="1.6"/>
+    <ellipse cx="56" cy="28" rx="38" ry="9" fill="${color}" stroke="var(--hand)" stroke-width="1.6"/>
+  </svg>`;
+}
+
+const CUP_COLORS = {
+  coffee: "var(--caramel)", matcha: "var(--matcha)", tea: "var(--s1)",
+  chocolate: "var(--mocha)", other: "var(--foam)",
+};
+
+function setPhase(selector, phase) {
+  const element = document.querySelector(selector);
+  if (element) element.dataset.phase = phase;
+}
+
+// --- 5. Drink showcase ------------------------------------------------------
+// Swiping changes screens, so the arrows are tapped. "order" fills in the
+// order card with a new number and moves on to it.
+
+let shopIndex = 0;
+let shopIsBusy = false;
+
+function shopCardHtml() {
+  const drinks = pickableDrinks();
+  if (!drinks.length) return `<p class="hand shop-empty" ${editable("labels.empty")}>${pretty(state.labels.empty)}</p>`;
+  const drink = drinks[shopIndex % drinks.length];
+  return `
+    <div class="shop-cup">${cupArt(CUP_COLORS[drink.category] || CUP_COLORS.other)}</div>
+    <h2 class="shop-name title" ${editable(`drink:${drink.id}:name`)} ${fitAttrs(drink.name, 3.8, 2.8)}></h2>
+    ${drink.description ? `<p class="shop-desc" ${editable(`drink:${drink.id}:description`)}>${pretty(drink.description)}</p>` : ""}
+    <p class="shop-price hand" ${editable(`drink:${drink.id}:price`)}>${pretty(drink.price)}</p>
+    <div class="shop-btn" ${editable("labels.shopButton")}>${pretty(state.labels.shopButton)}</div>`;
+}
+
+const ARROW = (path) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="${path}"/></svg>`;
+
+function renderShop() {
+  return `
+    <div class="shop-arrow shop-prev">${ARROW("M15 5l-7 7 7 7")}</div>
+    <div class="stand shop-stand fit-area"><div class="fit-content shop"><div class="shop-card">${shopCardHtml()}</div></div></div>
+    <div class="shop-arrow shop-next">${ARROW("M9 5l7 7-7 7")}</div>`;
+}
+
+function moveShop(direction) {
+  const count = pickableDrinks().length;
+  if (!count) return;
+  shopIndex = (shopIndex + direction + count) % count;
+  const card = document.querySelector(".shop-card");
+  card.innerHTML = shopCardHtml();
+  card.style.animation = "none";
+  card.getBoundingClientRect();
+  card.style.animation = "";
+  fitPosters();
+}
+
+function orderFromShop(button) {
+  const drinks = pickableDrinks();
+  if (!drinks.length) return;
+  const drink = drinks[shopIndex % drinks.length];
+  state.order = {
+    number: Math.min(state.order.number + 1, 99999),
+    drink: drink.name,
+    username: state.order.username,
+    note: "",
+  };
+  saveState();
+  button.innerHTML = pretty(state.labels.shopAdded);
+  button.classList.add("is-done");
+  shopIsBusy = true;
+  setTimeout(() => {
+    shopIsBusy = false;
+    if (activeScreenId !== "shop" || textMode) { renderStage(activeScreenId); return; }
+    renderStage(activeScreenId); // puts the new order on the order card
+    if (visibleScreens().some((screen) => screen.id === "order")) changeScreen(1, "order");
+  }, 1200);
+}
+
+function tapShop(event) {
+  if (shopIsBusy) return;
+  const target = event.target;
+  const button = target.closest(".shop-btn");
+  if (button) orderFromShop(button);
+  else if (target.closest(".shop-prev")) moveShop(-1);
+  else if (target.closest(".shop-next")) moveShop(1);
+}
+
+function resetShop() {
+  shopIsBusy = false;
+}
+
+// --- 6. Paying with kisses --------------------------------------------------
+// Uses the drink on the order card. Tap: a short wait, then a heart.
+
+let payPhase = "idle";       // idle, working or paid
+let payTimer = null;
+
+function orderPrice() {
+  const drink = state.drinks.find((item) => item.name === state.order.drink);
+  return drink ? drink.price : "";
+}
+
+function renderPay() {
+  return `
+    <div class="stand fit-area"><div class="fit-content">
+      <div class="pay" data-phase="${payPhase}">
+        <p class="pay-drink" ${editable("order.drink")}>${pretty(state.order.drink)}</p>
+        <p class="pay-price title">${pretty(orderPrice())}</p>
+        <div class="pay-pad">
+          <span class="pay-state pay-idle hand" ${editable("labels.pay")}>${pretty(state.labels.pay)}</span>
+          <span class="pay-state pay-working"><i></i><i></i><i></i></span>
+          <span class="pay-state pay-paid">${HEART}<b class="hand" ${editable("labels.paid")}>${pretty(state.labels.paid)}</b></span>
+        </div>
+      </div>
+    </div></div>`;
+}
+
+function tapPay() {
+  if (payPhase === "working") return;
+  if (payPhase === "paid") { payPhase = "idle"; setPhase(".pay", payPhase); return; }
+  payPhase = "working";
+  setPhase(".pay", payPhase);
+  payTimer = setTimeout(() => { payPhase = "paid"; setPhase(".pay", payPhase); }, 2000);
+}
+
+function resetPay() {
+  clearTimeout(payTimer);
+  payPhase = "idle";
+  setPhase(".pay", payPhase);
+}
+
+// --- 7. Pour it yourself ----------------------------------------------------
+// Coffee flows while a finger is held anywhere, and stops when it lifts.
+
+const POUR_TIME = 7000;      // how long a full pour takes (ms)
+
+let pourLevel = 0;           // 0 is empty, 100 is full
+let pourIsOn = false;
+let pourLastTime = 0;
+
+function pourPhase() {
+  if (pourLevel >= 100) return "full";
+  if (pourIsOn) return "pouring";
+  return pourLevel > 0 ? "paused" : "empty";
+}
+
+function drawPour() {
+  const pour = document.querySelector(".pour");
+  if (!pour) return;
+  pour.dataset.phase = pourPhase();
+  pour.style.setProperty("--level", pourLevel);
+}
+
+function renderPour() {
+  return `
+    <div class="pour" data-phase="${pourPhase()}" style="--level:${pourLevel}">
+      <div class="pour-cup">
+        <div class="pour-stream"></div>
+        <div class="pour-inner"><div class="pour-fill"></div></div>
+      </div>
+      <p class="pour-hint pour-hint-start hand" ${editable("labels.pour")}>${pretty(state.labels.pour)}</p>
+      <p class="pour-hint pour-hint-full hand" ${editable("labels.full")}>${pretty(state.labels.full)}</p>
+    </div>`;
+}
+
+function stepPour(now) {
+  if (!pourIsOn) return;
+  pourLevel = Math.min(100, pourLevel + (now - pourLastTime) / POUR_TIME * 100);
+  pourLastTime = now;
+  if (pourLevel >= 100) pourIsOn = false;
+  drawPour();
+  if (pourIsOn) requestAnimationFrame(stepPour);
+}
+
+function startPour() {
+  if (pourIsOn || pourLevel >= 100) return;
+  pourIsOn = true;
+  pourLastTime = performance.now();
+  drawPour();
+  requestAnimationFrame(stepPour);
+}
+
+function stopPour() {
+  if (!pourIsOn) return;
+  pourIsOn = false;
+  drawPour();
+}
+
+// A tap on a full cup empties it, ready for another take
+function tapPour() {
+  if (pourLevel >= 100) resetPour();
+}
+
+function resetPour() {
+  pourIsOn = false;
+  pourLevel = 0;
+  drawPour();
+}
+
+// --- 8. Order is ready ------------------------------------------------------
+// Tap the counter bell. Tap again and it goes quiet for another take.
+
+let readyIsOn = false;
+
+function renderReady() {
+  const number = String(state.order.number).padStart(3, "0");
+  return `
+    <div class="stand fit-area"><div class="fit-content">
+      <div class="ready" data-phase="${readyIsOn ? "on" : "off"}">
+        <svg class="bell" viewBox="0 0 120 100" fill="none" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M60 8v10" stroke="var(--ink)" stroke-width="5"/><ellipse cx="60" cy="8" rx="10" ry="4" fill="var(--ink)"/>
+          <path d="M18 78c0-34 18-60 42-60s42 26 42 60z" fill="var(--caramel)" stroke="var(--hand)" stroke-width="1.6"/>
+          <path d="M38 62c1-14 7-25 16-30" stroke="var(--foam)" stroke-width="3.5"/>
+          <rect x="8" y="78" width="104" height="14" rx="7" fill="var(--ink)"/>
+        </svg>
+        <div class="ready-text">
+          <p class="ready-number hand"><span ${editable("labels.number")}>${pretty(state.labels.number)}</span> <bdi ${editable("order.number")}>${number}</bdi></p>
+          <h2 class="ready-title title" ${editable("labels.ready")}>${pretty(state.labels.ready)}</h2>
+        </div>
+      </div>
+    </div></div>`;
+}
+
+function tapReady() {
+  readyIsOn = !readyIsOn;
+  setPhase(".ready", readyIsOn ? "on" : "off");
+}
+
+function resetReady() {
+  readyIsOn = false;
+  setPhase(".ready", "off");
+}
+
+// --- 9. A note in the cup ---------------------------------------------------
+// Tap: a note rises out of the cup. Tap again: it slips back in.
+
+let noteIndex = -1;          // which note is out; -1 means none
+
+function noteHtml() {
+  if (noteIndex < 0) return "";
+  return `<p class="note-text hand" ${editable(`notes.${noteIndex}`)}>${pretty(state.notes[noteIndex] || "")}</p>`;
+}
+
+function renderNote() {
+  return `
+    <div class="note" data-phase="${noteIndex < 0 ? "in" : "out"}">
+      <div class="note-paper fit-area"><div class="fit-content">${noteHtml()}</div></div>
+      <div class="note-cup">${cupArt("var(--mocha)")}</div>
+    </div>`;
+}
+
+function tapNote() {
+  if (noteIndex >= 0) { resetNote(); return; }
+  const usable = state.notes.map((note, index) => (note.trim() ? index : -1)).filter((index) => index >= 0);
+  if (!usable.length) return;
+  const others = usable.filter((index) => index !== noteLastIndex);
+  const pool = others.length ? others : usable;
+  noteIndex = pool[Math.floor(Math.random() * pool.length)];
+  noteLastIndex = noteIndex;
+  document.querySelector(".note-paper .fit-content").innerHTML = noteHtml();
+  fitPosters();
+  setPhase(".note", "out");
+}
+
+let noteLastIndex = -1;      // so the same note doesn't come up twice in a row
+
+function resetNote() {
+  noteIndex = -1;
+  setPhase(".note", "in");
 }
 
 // --- Drawing ----------------------------------------------------------------
