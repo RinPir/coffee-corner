@@ -11,7 +11,7 @@ const SEASONS = ["autumn", "winter", "spring", "summer"];
 const MAX_ON_BOARD = 6;
 
 const DEFAULT_STATE = {
-  version: 2,              // lets the app update older saved content
+  version: 3,              // lets the app update older saved content
   cafeName: "the little nook",
   subtitle: "made at home ♡",
   signOpen: "open",        // the two sides of the sign
@@ -36,7 +36,7 @@ const DEFAULT_STATE = {
   season: "auto",          // autumn, winter, spring, summer or auto
   background: "light",     // light or dark
   textSize: 1,             // 1 is normal; the slider goes from 0.8 to 1.5
-  screens: { menu: true, shop: true, order: true, pay: true, pour: true, ready: true, pick: true, note: true, sign: true, ambient: true }, // which screens you can swipe to
+  screens: { menu: true, shop: true, order: true, pay: true, pour: true, ready: true, pick: false, note: true, sign: true, ambient: true }, // which screens you can swipe to
 
   // The little notes that come out of the cup, one idea each
   notes: [

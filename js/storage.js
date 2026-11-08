@@ -27,7 +27,7 @@ function cleanState(raw) {
   // Updates a drink from an older save, one time:
   // prices become "3 kisses", and starter drinks gain their new descriptions.
   const upgradeDrink = (drink) => {
-    if (raw.version === d.version || !drink || typeof drink !== "object") return drink;
+    if (raw.version >= 2 || !drink || typeof drink !== "object") return drink;
     const starter = d.drinks.find((item) => item.name === drink.name);
     const description = drink.description || (starter ? starter.description : "");
     let price = drink.price;
@@ -57,7 +57,12 @@ function cleanState(raw) {
     season: [...SEASONS, "auto"].includes(raw.season) ? raw.season : d.season,
     background: raw.background === "dark" ? "dark" : "light",
     textSize: Math.min(1.5, Math.max(0.8, Number(raw.textSize) || 1)),
-    screens: { ...d.screens, ...(raw.screens || {}) },
+    screens: {
+      ...d.screens,
+      ...(raw.screens || {}),
+      // Older saves: drink of the day was taken off the swipe list in version 3
+      ...(raw.version >= 3 ? {} : { pick: false }),
+    },
     order: {
       number: number >= 1 ? Math.min(number, 99999) : 1,
       drink: text(rawOrder.drink, d.order.drink, 60),
