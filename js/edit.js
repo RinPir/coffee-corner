@@ -135,6 +135,13 @@ function cafeView() {
       ${field("café name", "cafeName", state.cafeName)}
       ${field("subtitle", "subtitle", state.subtitle)}
     </div>
+    <div class="e-section"><h2>small words on the screens</h2>
+      ${field("order card title", "labels.order", state.labels.order)}
+      ${field("before the order number", "labels.number", state.labels.number)}
+      ${field("drink of the day, before the tap", "labels.pick", state.labels.pick)}
+      ${field("drink of the day, above the result", "labels.today", state.labels.today)}
+      ${field("menu with no drinks", "labels.empty", state.labels.empty)}
+    </div>
     <div class="e-section"><h2>open / closed sign</h2>
       ${field("open side", "signOpen", state.signOpen)}
       ${field("small line, open side", "signOpenNote", state.signOpenNote)}
@@ -251,6 +258,7 @@ editPanel.addEventListener("input", (event) => {
   else if (name === "order.username") state.order.username = input.value.replace(/^@+/, "").trim();
   else if (name === "order.drink" || name === "order.note") state.order[name.split(".")[1]] = input.value;
   else if (name === "textSize") state.textSize = Number(input.value);
+  else if (name && name.startsWith("labels.")) state.labels[name.split(".")[1]] = input.value;
   else if (["cafeName", "subtitle", "signOpen", "signOpenNote", "signClosed", "signClosedNote"].includes(name)) state[name] = input.value;
   else if (name && name.startsWith("drink.")) {
     const key = name.split(".")[1];
@@ -288,4 +296,96 @@ editPanel.addEventListener("change", async (event) => {
   }
   // Redraw the card's title once the name is finished
   if (input.dataset.field === "drink.onBoard") drawEdit();
+});
+
+// --- Changing text right on the poster --------------------------------------
+// The long press lands here first. Every text with data-edit gets a soft outline;
+// tap one, type in the bar at the top, and the poster changes as you type.
+// Paths look like "cafeName", "labels.pick", "order.note" or "drink:ID:price".
+
+const textBar = document.getElementById("text-bar");
+const textInput = document.getElementById("text-input");
+const textHint = document.getElementById("text-hint");
+
+let textMode = false;
+let textModeSince = 0;    // the finger that opened this mode must not also pick a text
+let textPath = null;      // the text being changed right now
+
+function drinkById(id) {
+  return state.drinks.find((drink) => drink.id === id);
+}
+
+function readText(path) {
+  if (path.startsWith("drink:")) {
+    const [, id, key] = path.split(":");
+    return drinkById(id)[key];
+  }
+  const [first, second] = path.split(".");
+  return String(second ? state[first][second] : state[first]);
+}
+
+function writeText(path, value) {
+  if (path.startsWith("drink:")) {
+    const [, id, key] = path.split(":");
+    drinkById(id)[key] = value;
+  }
+  else if (path === "order.number") {
+    const number = Math.floor(Number(value));
+    if (number >= 1 && number <= 99999) state.order.number = number;
+  }
+  else if (path === "order.username") state.order.username = value.replace(/^@+/, "").trim();
+  else if (path.includes(".")) {
+    const [first, second] = path.split(".");
+    state[first][second] = value;
+  }
+  else state[path] = value;
+}
+
+function outlineChosenText() {
+  document.querySelectorAll("#stage [data-edit]").forEach((element) => {
+    element.classList.toggle("is-chosen", element.dataset.edit === textPath);
+  });
+}
+
+function chooseText(path) {
+  textPath = path;
+  textHint.hidden = true;
+  textInput.hidden = false;
+  textInput.value = readText(path);
+  textInput.inputMode = path === "order.number" ? "numeric" : "text";
+  textInput.focus(); // has to happen during the tap, or the iPad won't show the keyboard
+  outlineChosenText();
+}
+
+function setTextMode(isOn) {
+  textMode = isOn;
+  textModeSince = performance.now();
+  textPath = null;
+  textInput.blur();
+  textInput.hidden = true;
+  textHint.hidden = false;
+  textBar.hidden = !isOn;
+  document.body.classList.toggle("text-mode", isOn);
+  renderStage(activeScreenId); // the bar takes some room, so everything is measured again
+}
+
+document.getElementById("stage").addEventListener("click", (event) => {
+  if (!textMode || performance.now() - textModeSince < 500) return;
+  const element = event.target.closest("[data-edit]");
+  if (element) chooseText(element.dataset.edit);
+});
+
+textInput.addEventListener("input", () => {
+  writeText(textPath, textInput.value);
+  save();
+  renderStage(activeScreenId);
+  outlineChosenText();
+});
+
+document.getElementById("text-done").addEventListener("click", () => setTextMode(false));
+
+document.getElementById("text-more").addEventListener("click", () => {
+  const screen = SCREENS.find((item) => item.id === activeScreenId);
+  setTextMode(false);
+  openEdit(screen.editTab);
 });

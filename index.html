@@ -27,6 +27,14 @@
   <!-- The edit panel, opened by a long press. Filled in by js/edit.js -->
   <div id="edit" hidden></div>
 
+  <!-- The small bar for changing text right on the poster. See js/edit.js -->
+  <div id="text-bar" hidden>
+    <span id="text-hint">tap any text to change it</span>
+    <input id="text-input" hidden autocomplete="off" maxlength="100">
+    <button class="e-btn" id="text-more">more</button>
+    <button class="e-btn primary" id="text-done">done</button>
+  </div>
+
   <script src="js/defaults.js"></script>
   <script src="js/storage.js"></script>
   <script src="js/ambient.js"></script>

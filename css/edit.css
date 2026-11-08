@@ -94,3 +94,32 @@
 .e-drink-form { padding: 4px 16px 16px; }
 .e-drink-form .e-input, .e-drink-form .e-select { border-color: transparent; }
 .e-drink-form .e-chip { border-color: var(--caramel); }
+
+/* --- Changing text right on the poster ----------------------------------- */
+#text-bar {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 9;
+  height: calc(env(safe-area-inset-top) + 72px);
+  padding: calc(env(safe-area-inset-top) + 12px) 20px 12px;
+  display: flex; align-items: center; gap: 8px;
+  background: var(--oat-milk);
+  border-bottom: 1px solid var(--foam);
+  color: var(--espresso);
+  font-size: 17px;
+}
+#text-hint { flex: 1; color: var(--mocha); }
+#text-input {
+  flex: 1; min-width: 0; height: 48px; padding: 0 14px;
+  border: 1px solid var(--foam); border-radius: 12px;
+  background: #FBF7F0; color: var(--espresso);
+  font: inherit; -webkit-appearance: none; appearance: none;
+  -webkit-user-select: text; user-select: text;
+}
+.text-mode #stage { top: calc(env(safe-area-inset-top) + 72px); cursor: auto; }
+.text-mode #stage [data-edit] {
+  outline: 1.5px dashed var(--caramel);
+  outline-offset: .12em;
+  border-radius: .15em;
+}
+.text-mode #stage [data-edit].is-chosen { outline-style: solid; outline-width: 2.5px; }

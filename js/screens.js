@@ -43,6 +43,11 @@ const DECOR = {
   summer: `<svg viewBox="0 0 96 52"><circle cx="42" cy="26" r="22" fill="var(--s2)"/><circle cx="42" cy="26" r="17" fill="none" stroke="var(--oat-milk)" stroke-width="1.5"/><path d="M42 9v34M25 26h34M30 14l24 24M54 14 30 38" stroke="var(--oat-milk)" stroke-width="1.5"/><circle cx="78" cy="17" r="7" fill="var(--s1)"/><circle cx="82" cy="36" r="4" fill="var(--s3)"/></svg>`,
 };
 
+// Marks a piece of text as tappable while editing on the screen (see edit.js)
+function editable(path) {
+  return `data-edit="${attr(path)}"`;
+}
+
 function decor() {
   return `<div class="decor">${DECOR[currentSeason()]}</div>`;
 }
@@ -67,11 +72,11 @@ function renderMenu() {
   const rows = drinks.map((drink) => `
     <li>
       <div class="menu-row">
-        <span class="menu-name">${pretty(drink.name)}</span>
+        <span class="menu-name" ${editable(`drink:${drink.id}:name`)}>${pretty(drink.name)}</span>
         <span class="menu-dots"></span>
-        <span class="menu-price hand">${pretty(drink.price)}</span>
+        <span class="menu-price hand" ${editable(`drink:${drink.id}:price`)}>${pretty(drink.price)}</span>
       </div>
-      <p class="menu-desc">${pretty(drink.description) || "&nbsp;"}</p>
+      <p class="menu-desc" ${editable(`drink:${drink.id}:description`)}>${pretty(drink.description) || "&nbsp;"}</p>
     </li>`).join("");
 
   return `
@@ -79,12 +84,12 @@ function renderMenu() {
       <div class="fit-area">
         <div class="menu fit-content">
           <header class="menu-head">
-            <h1 class="title">${pretty(state.cafeName)}</h1>
-            <p class="hand">${pretty(state.subtitle)}</p>
+            <h1 class="title" ${editable("cafeName")}>${pretty(state.cafeName)}</h1>
+            <p class="hand" ${editable("subtitle")}>${pretty(state.subtitle)}</p>
             ${decor()}
           </header>
           ${rows ? `<ul class="menu-list">${rows}</ul>`
-                 : `<p class="menu-list menu-empty hand">back soon</p>`}
+                 : `<p class="menu-list menu-empty hand" ${editable("labels.empty")}>${pretty(state.labels.empty)}</p>`}
         </div>
       </div>
     </div>`;
@@ -101,17 +106,17 @@ function renderOrder() {
       <div class="ticket-wrap fit-content">
         <div class="ticket">
           <div class="ticket-head">
-            <span class="ticket-cafe">${pretty(state.cafeName)}</span>
+            <span class="ticket-cafe" ${editable("cafeName")}>${pretty(state.cafeName)}</span>
             ${decor()}
           </div>
           <div class="ticket-meta">
-            <p class="ticket-label hand">today's order</p>
-            <p class="ticket-no title"><span>no.</span> ${number}</p>
+            <p class="ticket-label hand" ${editable("labels.order")}>${pretty(state.labels.order)}</p>
+            <p class="ticket-no title"><span ${editable("labels.number")}>${pretty(state.labels.number)}</span> <bdi ${editable("order.number")}>${number}</bdi></p>
           </div>
           <hr class="ticket-line">
-          <h2 class="ticket-drink title" ${fitAttrs(order.drink, 4.2, 3)}></h2>
-          ${order.username ? `<p class="ticket-for hand" ${fitAttrs("for @" + order.username, 2.1)}></p>` : ""}
-          ${order.note ? `<p class="ticket-note hand">${pretty(order.note)}</p>` : ""}
+          <h2 class="ticket-drink title" ${editable("order.drink")} ${fitAttrs(order.drink, 4.2, 3)}></h2>
+          ${order.username ? `<p class="ticket-for hand" ${editable("order.username")} ${fitAttrs("for @" + order.username, 2.1)}></p>` : ""}
+          ${order.note ? `<p class="ticket-note hand" ${editable("order.note")}>${pretty(order.note)}</p>` : ""}
         </div>
       </div>
     </div>`;
@@ -136,10 +141,10 @@ function pickableDrinks() {
 function pickResultHtml() {
   if (!pickWinner) return "";
   return `
-    <p class="pick-label hand">today's drink</p>
-    <h2 class="pick-name title" ${fitAttrs(pickWinner.name, 5.4, 3.6)}></h2>
-    ${pickWinner.description ? `<p class="pick-desc">${pretty(pickWinner.description)}</p>` : ""}
-    <p class="pick-price hand">${pretty(pickWinner.price)}</p>`;
+    <p class="pick-label hand" ${editable("labels.today")}>${pretty(state.labels.today)}</p>
+    <h2 class="pick-name title" ${editable(`drink:${pickWinner.id}:name`)} ${fitAttrs(pickWinner.name, 5.4, 3.6)}></h2>
+    ${pickWinner.description ? `<p class="pick-desc" ${editable(`drink:${pickWinner.id}:description`)}>${pretty(pickWinner.description)}</p>` : ""}
+    <p class="pick-price hand" ${editable(`drink:${pickWinner.id}:price`)}>${pretty(pickWinner.price)}</p>`;
 }
 
 function renderPick() {
@@ -148,7 +153,7 @@ function renderPick() {
     <div class="coaster"></div>
     <div class="pick" data-phase="${pickPhase}">
       <div class="pick-layer pick-idle fit-area"><div class="fit-content">
-        <h2 class="pick-idle-title title">drink of the day</h2>
+        <h2 class="pick-idle-title title" ${editable("labels.pick")}>${pretty(state.labels.pick)}</h2>
       </div></div>
       <div class="pick-reel-window"><div class="pick-reel"></div></div>
       <div class="pick-layer pick-result fit-area"><div class="fit-content">${pickResultHtml()}</div></div>
@@ -211,11 +216,11 @@ function resetPick() {
 
 let signIsFlipping = false;
 
-function signFace(side, title, note) {
+function signFace(side, title, note, titlePath, notePath) {
   return `
     <div class="sign-face sign-${side}"><div class="sign-inner fit-area"><div class="fit-content">
-      <h2 class="sign-title title" ${fitAttrs(title, 7.5, 4.6)}></h2>
-      ${note ? `<p class="sign-note hand">${pretty(note)}</p>` : ""}
+      <h2 class="sign-title title" ${editable(titlePath)} ${fitAttrs(title, 7.5, 4.6)}></h2>
+      ${note ? `<p class="sign-note hand" ${editable(notePath)}>${pretty(note)}</p>` : ""}
     </div></div></div>`;
 }
 
@@ -224,8 +229,8 @@ function renderSign() {
     <div class="sign ${state.signIsOpen ? "" : "is-closed"}">
       <svg class="sign-string" viewBox="0 0 100 40" fill="none" stroke="var(--hand)" stroke-width=".7" stroke-linecap="round"><path d="M12 40 50 5 88 40"/><circle cx="50" cy="4" r="2" fill="var(--hand)" stroke="none"/></svg>
       <div class="sign-card">
-        ${signFace("front", state.signOpen, state.signOpenNote)}
-        ${signFace("back", state.signClosed, state.signClosedNote)}
+        ${signFace("front", state.signOpen, state.signOpenNote, "signOpen", "signOpenNote")}
+        ${signFace("back", state.signClosed, state.signClosedNote, "signClosed", "signClosedNote")}
       </div>
     </div>`;
 }

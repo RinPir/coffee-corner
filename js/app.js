@@ -95,10 +95,11 @@ window.addEventListener("pointerdown", (event) => {
 
   const isOneFinger = fingers.size === 1;
   if (!editPanel.hidden || !isOneFinger || startsAtEdge(event.clientX, event.clientY)) return;
+  if (event.target.closest("#text-bar")) return;
 
   gesture = { id: event.pointerId, x: event.clientX, y: event.clientY, time: performance.now() };
 
-  if (inHoldCorner(event.clientX, event.clientY)) {
+  if (!textMode && inHoldCorner(event.clientX, event.clientY)) {
     // Way two: a few quick taps in the corner
     const now = performance.now();
     cornerTapTimes = cornerTapTimes.filter((time) => now - time < GESTURES.cornerTapTime);
@@ -113,14 +114,13 @@ window.addEventListener("pointerdown", (event) => {
 function openEditHere() {
   stopGesture();
   cornerTapTimes = [];
-  const screen = SCREENS.find((item) => item.id === activeScreenId);
-  openEdit(screen.editTab);
+  setTextMode(true); // defined in edit.js
 }
 
 // Tells the iPad that touches on the posters are ours, so its own long-press
 // handling can't interrupt them. The edit panel is not affected.
 document.getElementById("stage").addEventListener("touchstart", (event) => {
-  event.preventDefault();
+  if (!textMode) event.preventDefault(); // while editing, taps must reach the text
 }, { passive: false });
 
 // If the iPad still interrupts a touch, this is how we learn the finger lifted
@@ -155,7 +155,7 @@ window.addEventListener("pointerup", (event) => {
   const stayedStill = Math.hypot(dx, dy) <= GESTURES.tapMaxMove;
   const tapSpeed = duration >= GESTURES.tapMinTime && duration <= GESTURES.tapMaxTime;
   const screen = SCREENS.find((item) => item.id === activeScreenId);
-  if (stayedStill && tapSpeed && !isChanging && !startedInCorner && screen.onTap) screen.onTap();
+  if (stayedStill && tapSpeed && !isChanging && !startedInCorner && !textMode && screen.onTap) screen.onTap();
 });
 
 // The iPad interrupted the touch. The long press keeps counting until the
@@ -206,5 +206,5 @@ window.addEventListener("resize", fitPosters);
 document.addEventListener("visibilitychange", () => {
   stopGesture();
   fingers.clear();
-  if (!document.hidden && editPanel.hidden) { renderStage(activeScreenId); keepAwake(); }
+  if (!document.hidden && editPanel.hidden && !textMode) { renderStage(activeScreenId); keepAwake(); }
 });

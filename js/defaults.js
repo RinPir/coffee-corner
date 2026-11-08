@@ -19,6 +19,13 @@ const DEFAULT_STATE = {
   signClosed: "see you tomorrow",
   signClosedNote: "the kettle is resting",
   signIsOpen: true,
+  labels: {                // the small fixed words on the screens
+    order: "today's order",
+    number: "no.",
+    pick: "drink of the day",
+    today: "today's drink",
+    empty: "back soon",
+  },
   season: "auto",          // autumn, winter, spring, summer or auto
   background: "light",     // light or dark
   textSize: 1,             // 1 is normal; the slider goes from 0.8 to 1.5

@@ -45,6 +45,8 @@ function cleanState(raw) {
     signClosed: text(raw.signClosed, d.signClosed, 30),
     signClosedNote: text(raw.signClosedNote, d.signClosedNote, 50),
     signIsOpen: raw.signIsOpen !== false,
+    labels: Object.fromEntries(Object.keys(d.labels).map((key) =>
+      [key, text((raw.labels || {})[key], d.labels[key], 40)])),
     season: [...SEASONS, "auto"].includes(raw.season) ? raw.season : d.season,
     background: raw.background === "dark" ? "dark" : "light",
     textSize: Math.min(1.5, Math.max(0.8, Number(raw.textSize) || 1)),

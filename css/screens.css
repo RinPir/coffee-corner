@@ -191,10 +191,12 @@ body { position: fixed; inset: 0; }
 .pick .fit-content { width: 100%; }
 
 /* The three layers fade into each other */
-.pick-layer, .pick-reel-window { position: absolute; inset: 0; opacity: 0; transition: opacity 1.2s ease-in-out; }
+.pick-layer, .pick-reel-window { position: absolute; inset: 0; opacity: 0; pointer-events: none; transition: opacity 1.2s ease-in-out; }
 .pick[data-phase="idle"] .pick-idle,
 .pick[data-phase="spinning"] .pick-reel-window,
 .pick[data-phase="result"] .pick-result { opacity: 1; }
+.pick[data-phase="idle"] .pick-idle,
+.pick[data-phase="result"] .pick-result { pointer-events: auto; } /* only the layer you can see takes taps */
 
 .pick-idle-title { font-size: 5.4em; }
 
