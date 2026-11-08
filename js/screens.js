@@ -415,6 +415,10 @@ function resetPay() {
 
 const POUR_TIME = 6500;       // how long the liquid takes to fill the cup (ms)
 const SPRINKLE_SHARE = 0.16;  // how long each topping takes, compared with the liquid
+const ICE_SHARE = 0.24;       // how long the ice takes, compared with the liquid
+
+// Where each ice cube comes to rest in the glass
+const ICE_SLOTS = [[-30, 166, .2], [28, 168, -.3], [-8, 122, .5], [34, 118, .15], [-36, 112, -.4], [10, 72, .3], [-26, 62, -.2]];
 
 const POUR_COLORS = {
   espresso: "#3A2921", milk: "#FBF7F0", matcha: "#8E9B6A", chocolate: "#4F3327",
@@ -441,7 +445,12 @@ function pourRecipeFor(order) {
   const words = `${order.drink} ${order.note}`.toLowerCase().replace(/\bno\s+\w+/g, " "); // "no sugar" means none
   const known = state.drinks.find((drink) => drink.name === order.drink);
   const category = known ? known.category : "";
-  const { espresso, milk, matcha, chocolate, chai, tea, sakura, other } = POUR_COLORS;
+  const { espresso, matcha, chocolate, chai, tea, sakura, other } = POUR_COLORS;
+
+  // Iced drinks go in a tall glass. The name, note or description can say so.
+  const iced = /\bno ice\b/.test(order.note.toLowerCase()) ? false
+    : /\b(iced?|frappe|cold brew)\b/.test(`${words} ${known ? known.description : ""}`.toLowerCase());
+  const milk = iced ? "#E9DAC2" : POUR_COLORS.milk; // pale milk would vanish in a clear glass
 
   let base;
   if (/matcha/.test(words) || category === "matcha") base = [[matcha, 1]];
@@ -460,6 +469,7 @@ function pourRecipeFor(order) {
   const syrup = POUR_SYRUPS.find(([pattern]) => pattern.test(words));
   const syrupAmount = syrup ? .16 : 0;
   const steps = [];
+  if (iced) steps.push({ ice: true, amount: ICE_SHARE });
   if (syrup) steps.push({ color: syrup[1], amount: syrupAmount, width: 5 });
   base.forEach(([color, amount]) => steps.push({ color, amount: amount * (1 - syrupAmount), width: 11 }));
   POUR_TOPPINGS.forEach(([pattern, color]) => {
@@ -475,6 +485,7 @@ let pourLastTime = 0;
 let pourSteps = [];
 let pourFalling = [];         // toppings in the air
 let pourSpecks = [];          // toppings that have landed
+let pourCubes = [];           // ice cubes in the glass
 
 function pourPhase() {
   if (pourLevel >= 100) return "full";
@@ -497,14 +508,51 @@ function pourProgress() {
   const total = pourSteps.reduce((sum, step) => sum + step.amount, 0);
   let time = pourLevel / 100 * total;
   let current = null;
+  let iceDone = 0;
   const layers = [];
   for (const step of pourSteps) {
     const done = Math.min(step.amount, Math.max(0, time));
     if (!current && time < step.amount) current = step;
-    if (!step.sprinkle && done > 0) layers.push({ color: step.color, amount: done });
+    if (step.ice) iceDone = done / step.amount;
+    else if (!step.sprinkle && done > 0) layers.push({ color: step.color, amount: done });
     time -= step.amount;
   }
-  return { layers, current };
+  return { layers, current, iceDone };
+}
+
+function pourIsIced() {
+  return pourSteps.some((step) => step.ice);
+}
+
+function glassOutline(ctx) {
+  ctx.beginPath();
+  ctx.moveTo(-80, -100);
+  ctx.lineTo(80, -100);
+  ctx.lineTo(66, 188);
+  ctx.quadraticCurveTo(65, 200, 52, 200);
+  ctx.lineTo(-52, 200);
+  ctx.quadraticCurveTo(-65, 200, -66, 188);
+  ctx.closePath();
+}
+
+function drawCube(ctx, x, y, turn) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(turn);
+  ctx.beginPath();
+  if (ctx.roundRect) ctx.roundRect(-23, -23, 46, 46, 8);
+  else ctx.rect(-23, -23, 46, 46); // older iPads: square corners
+  ctx.fillStyle = "rgba(220, 232, 235, .55)";
+  ctx.fill();
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = "rgba(169, 199, 204, .95)";
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(-13, -13);
+  ctx.lineTo(1, -13);
+  ctx.strokeStyle = "rgba(251, 247, 240, .9)";
+  ctx.stroke();
+  ctx.restore();
 }
 
 function cupOutline(ctx) {
@@ -535,32 +583,35 @@ function drawPour() {
   const unit = width / 400;
   const originY = height * 0.55 / unit - 100; // the cup's rim, in cup units
 
-  ctx.setTransform(unit, 0, 0, unit, width / 2 - 14 * unit, originY * unit);
-  ctx.clearRect(-300, -originY, 700, height / unit);
+  const iced = pourIsIced();
+  const outline = iced ? glassOutline : cupOutline;
+  ctx.setTransform(unit, 0, 0, unit, width / 2 - (iced ? 0 : 14) * unit, originY * unit);
+  ctx.clearRect(-300, -originY - 10, 700, height / unit + 20);
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
 
-  // Saucer and handle sit behind the cup
-  ctx.beginPath();
-  ctx.ellipse(0, 202, 160, 17, 0, 0, Math.PI * 2);
-  ctx.fillStyle = inside; ctx.fill();
-  ctx.lineWidth = 3; ctx.strokeStyle = line; ctx.stroke();
-  ctx.beginPath();
-  ctx.moveTo(100, 38);
-  ctx.bezierCurveTo(190, 18, 190, 132, 80, 130);
-  ctx.lineWidth = 15; ctx.stroke();
+  // Saucer and handle sit behind the cup. A glass has neither.
+  if (!iced) {
+    ctx.beginPath();
+    ctx.ellipse(0, 202, 160, 17, 0, 0, Math.PI * 2);
+    ctx.fillStyle = inside; ctx.fill();
+    ctx.lineWidth = 3; ctx.strokeStyle = line; ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(100, 38);
+    ctx.bezierCurveTo(190, 18, 190, 132, 80, 130);
+    ctx.lineWidth = 15; ctx.stroke();
 
-  // The cup and what's in it
-  cupOutline(ctx);
-  ctx.fillStyle = inside; ctx.fill();
+    cupOutline(ctx);
+    ctx.fillStyle = inside; ctx.fill();
+  }
 
   const { layers, current } = pourProgress();
   const poured = layers.reduce((sum, layer) => sum + layer.amount, 0);
-  const liquidTotal = pourSteps.filter((step) => !step.sprinkle).reduce((sum, step) => sum + step.amount, 0);
-  const surfaceY = 200 - (liquidTotal ? poured / liquidTotal : 0) * 176;
+  const liquidTotal = pourSteps.filter((step) => !step.sprinkle && !step.ice).reduce((sum, step) => sum + step.amount, 0);
+  const surfaceY = 200 - (liquidTotal ? poured / liquidTotal : 0) * (iced ? 270 : 176);
 
   ctx.save();
-  cupOutline(ctx);
+  outline(ctx);
   ctx.clip();
   if (poured > 0) {
     // Layers melt softly into each other
@@ -583,11 +634,22 @@ function drawPour() {
   });
   ctx.restore();
 
-  cupOutline(ctx);
+  pourCubes.forEach((cube) => drawCube(ctx, cube.x, cube.y, cube.turn));
+
+  outline(ctx);
   ctx.lineWidth = 3.5; ctx.strokeStyle = line; ctx.stroke();
+  if (iced) {
+    // A soft shine down the side of the glass
+    ctx.beginPath();
+    ctx.moveTo(-60, -80);
+    ctx.lineTo(-50, 160);
+    ctx.lineWidth = 6;
+    ctx.strokeStyle = "rgba(251, 247, 240, .55)";
+    ctx.stroke();
+  }
 
   // What's falling
-  if (pourIsOn && current && !current.sprinkle) {
+  if (pourIsOn && current && current.width) {
     ctx.fillStyle = current.color;
     ctx.fillRect(-current.width / 2, -originY, current.width, originY + surfaceY);
   }
@@ -596,9 +658,11 @@ function drawPour() {
     ctx.fillRect(grain.x, grain.y, 3.4, 3.4);
   });
   pourSurfaceY = surfaceY;
+  pourTopY = originY + 60;
 }
 
 let pourSurfaceY = 200;
+let pourTopY = 300;           // how far above the rim the top of the screen is
 
 function stepPour(now) {
   const elapsed = Math.min(50, now - pourLastTime);
@@ -607,10 +671,14 @@ function stepPour(now) {
   if (pourIsOn) {
     const total = pourSteps.reduce((sum, step) => sum + step.amount, 0);
     pourLevel = Math.min(100, pourLevel + elapsed / (POUR_TIME * total) * 100);
-    const { current } = pourProgress();
+    const { current, iceDone } = pourProgress();
+    while (pourCubes.length < Math.ceil(iceDone * ICE_SLOTS.length)) {
+      const [x, restY, turn] = ICE_SLOTS[pourCubes.length];
+      pourCubes.push({ x, restY, turn, y: -pourTopY, speed: 0.5 });
+    }
     if (current && current.sprinkle) {
       for (let i = 0; i < 2; i++) {
-        pourFalling.push({ x: (Math.random() - .5) * 150, y: -60 - Math.random() * 40, speed: .22 + Math.random() * .12, color: current.color });
+        pourFalling.push({ x: (Math.random() - .5) * (pourIsIced() ? 105 : 150), y: -60 - Math.random() * 40, speed: .22 + Math.random() * .12, color: current.color });
       }
     }
     if (pourLevel >= 100) pourIsOn = false;
@@ -623,8 +691,16 @@ function stepPour(now) {
     return false;
   });
 
+  let cubesMoving = false;
+  pourCubes.forEach((cube) => {
+    if (cube.y >= cube.restY) return;
+    cube.speed += elapsed * 0.004;
+    cube.y = Math.min(cube.restY, cube.y + cube.speed * elapsed);
+    cubesMoving = true;
+  });
+
   drawPour();
-  if (pourIsOn || pourFalling.length) requestAnimationFrame(stepPour);
+  if (pourIsOn || pourFalling.length || cubesMoving) requestAnimationFrame(stepPour);
   else pourIsLooping = false;
 }
 
@@ -657,6 +733,7 @@ function resetPour() {
   pourLevel = 0;
   pourFalling = [];
   pourSpecks = [];
+  pourCubes = [];
   pourSteps = pourRecipeFor(state.order);
   drawPour();
 }
