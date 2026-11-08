@@ -369,6 +369,23 @@ function chooseText(path) {
   outlineChosenText();
 }
 
+// One tap: the next season, in this order
+const SEASON_ORDER = ["auto", ...SEASONS];
+
+function showSeasonButton() {
+  document.getElementById("text-season").textContent = `season: ${state.season}`;
+}
+
+document.getElementById("text-season").addEventListener("click", () => {
+  const index = SEASON_ORDER.indexOf(state.season);
+  state.season = SEASON_ORDER[(index + 1) % SEASON_ORDER.length];
+  save();
+  showSeasonButton();
+  resetAmbient(); // the candle may have just gone away
+  renderStage(activeScreenId);
+  outlineChosenText();
+});
+
 function setTextMode(isOn) {
   textMode = isOn;
   textModeSince = performance.now();
@@ -377,6 +394,7 @@ function setTextMode(isOn) {
   textInput.hidden = true;
   textHint.hidden = false;
   textBar.hidden = !isOn;
+  showSeasonButton();
   document.body.classList.toggle("text-mode", isOn);
   renderStage(activeScreenId); // the bar takes some room, so everything is measured again
 }
