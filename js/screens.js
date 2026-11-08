@@ -64,7 +64,7 @@ const SCREENS = [
   { id: "pick",  label: "drink of the day", editTab: "drinks", render: renderPick, onTap: tapPick, onLeave: resetPick },
   { id: "note",  label: "note in the cup", editTab: "cafe", render: renderNote, onTap: tapNote, onLeave: resetNote },
   { id: "sign",  label: "open / closed sign", editTab: "cafe", render: renderSign, onTap: tapSign },
-  { id: "ambient", label: "ambient scene", editTab: "cafe", render: renderAmbient },
+  { id: "ambient", label: "ambient scene", editTab: "cafe", render: renderAmbient, onTap: tapAmbient, onLeave: resetAmbient },
 ];
 
 // --- 1. Menu board ----------------------------------------------------------

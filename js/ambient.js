@@ -121,14 +121,16 @@ const SCENES = {
       s.waxLeft = dark ? "#C9B79F" : "#F5EEE4";
       s.waxRight = dark ? "#8F735A" : "#D8C5AD";
       s.waxTop = dark ? "#E7D9C6" : "#FBF7F0";
+      s.smokeDot = softDot(dark ? "rgba(231, 217, 198, .55)" : "rgba(122, 86, 66, .5)");
     },
-    draw(ctx, s, w, h, u, t) {
+    draw(ctx, s, w, h, u, t, dt) {
+      updateCandle(dt);
       const cx = w / 2;
       const tableY = h * 0.8;
       const wax = { w: 17 * u, h: 32 * u };
       const topY = tableY - wax.h;
       const flicker = wobble(t);
-      const flameH = 11.5 * u * (1 + flicker * 0.07);
+      const flameH = 11.5 * u * (1 + flicker * 0.07) * candleFlame;
       const sway = wobble(t * 0.6 + 4) * 0.7 * u;
       const flameBase = topY - 2.6 * u;
 
@@ -138,10 +140,14 @@ const SCENES = {
       ctx.fillStyle = s.table;
       ctx.fillRect(0, tableY, w, h - tableY);
 
+      // The room dims when the candle is out
+      ctx.fillStyle = `rgba(58, 41, 33, ${0.26 * (1 - candleFlame)})`;
+      ctx.fillRect(0, 0, w, h);
+
       // Warm glow, breathing with the flame
       const glowR = 62 * u;
       const glow = ctx.createRadialGradient(cx, flameBase - flameH / 2, 0, cx, flameBase - flameH / 2, glowR);
-      const strength = (s.dark ? 0.34 : 0.42) + flicker * 0.04;
+      const strength = ((s.dark ? 0.34 : 0.42) + flicker * 0.04) * candleFlame;
       glow.addColorStop(0, `rgba(217, 164, 91, ${strength})`);
       glow.addColorStop(1, "rgba(217, 164, 91, 0)");
       ctx.fillStyle = glow;
@@ -179,9 +185,14 @@ const SCENES = {
       ctx.stroke();
 
       // Flame: three nested teardrops
-      flame(ctx, cx, flameBase, sway, 3.3 * u, flameH, "#C9733E");
-      flame(ctx, cx, flameBase - 0.2 * u, sway, 2.6 * u, flameH * 0.86, "#D9A45B");
-      flame(ctx, cx, flameBase - 0.4 * u, sway * 0.8, 1.45 * u, flameH * 0.56, "#F3E0B0");
+      if (candleFlame > 0.02) {
+        flame(ctx, cx, flameBase, sway, 3.3 * u * candleFlame, flameH, "#C9733E");
+        flame(ctx, cx, flameBase - 0.2 * u, sway, 2.6 * u * candleFlame, flameH * 0.86, "#D9A45B");
+        flame(ctx, cx, flameBase - 0.4 * u, sway * 0.8, 1.45 * u * candleFlame, flameH * 0.56, "#F3E0B0");
+      }
+
+      drawSmoke(ctx, s, cx, flameBase, u, t, dt);
+      drawMatch(ctx, cx, flameBase, w, u, t);
     },
   },
 
@@ -216,6 +227,101 @@ const SCENES = {
     },
   },
 };
+
+// --- The candle's little story ----------------------------------------------
+// Tap: it's blown out and smoke curls up. Tap again: a match comes in and
+// lights it. Only the autumn scene has a candle.
+
+const MATCH_TIME = 2.6;      // how long the match's visit takes (seconds)
+
+let candleIsLit = true;
+let candleFlame = 1;         // 0 is out, 1 is full size
+let candleMatch = -1;        // the match's journey from 0 to 1; -1 means no match
+let candleSmokeLeft = 0;     // seconds of new smoke still to come
+let candleSmokeWait = 0;
+let candleSmoke = [];
+
+function tapAmbient() {
+  if (currentSeason() !== "autumn" || candleMatch >= 0) return;
+  if (candleIsLit) {
+    candleIsLit = false;
+    candleSmokeLeft = 4;
+  } else {
+    candleMatch = 0;
+  }
+}
+
+function resetAmbient() {
+  candleIsLit = true;
+  candleFlame = 1;
+  candleMatch = -1;
+  candleSmokeLeft = 0;
+  candleSmoke = [];
+}
+
+function updateCandle(dt) {
+  if (candleMatch >= 0) {
+    candleMatch += dt / MATCH_TIME;
+    if (candleMatch >= 0.48) candleIsLit = true; // the match has reached the wick
+    if (candleMatch >= 1) candleMatch = -1;
+  }
+  candleFlame = candleIsLit
+    ? Math.min(1, candleFlame + dt / 0.8)
+    : Math.max(0, candleFlame - dt / 0.3);
+}
+
+function drawSmoke(ctx, s, cx, base, u, t, dt) {
+  candleSmokeLeft = Math.max(0, candleSmokeLeft - dt);
+  candleSmokeWait -= dt;
+  if (candleSmokeLeft > 0 && !candleIsLit && candleSmokeWait <= 0) {
+    candleSmoke.push({ age: 0, phase: t });
+    candleSmokeWait = 0.09;
+  }
+  // The ember on the wick fades as the smoke runs out
+  if (!candleIsLit && candleSmokeLeft > 0) {
+    ctx.fillStyle = `rgba(201, 115, 62, ${Math.min(1, candleSmokeLeft / 2)})`;
+    ctx.beginPath();
+    ctx.arc(cx, base + 0.8 * u, 0.6 * u, 0, 6.29);
+    ctx.fill();
+  }
+
+  candleSmoke = candleSmoke.filter((puff) => (puff.age += dt) < 4);
+  for (const puff of candleSmoke) {
+    const size = (1.6 + puff.age * 2.6) * u;
+    const x = cx + Math.sin(puff.age * 1.7 + puff.phase * 0.3) * puff.age * 2.2 * u;
+    const y = base - puff.age * 11 * u;
+    ctx.globalAlpha = 0.75 * (1 - puff.age / 4);
+    ctx.drawImage(s.smokeDot, x - size / 2, y - size / 2, size, size);
+  }
+  ctx.globalAlpha = 1;
+}
+
+function drawMatch(ctx, cx, base, w, u, t) {
+  if (candleMatch < 0) return;
+  // In for the first half, a short pause at the wick, then away
+  const away = candleMatch < 0.42 ? 1 - candleMatch / 0.42
+             : candleMatch < 0.58 ? 0
+             : (candleMatch - 0.58) / 0.42;
+  const eased = away * away * (3 - 2 * away);
+  const tipX = cx + 3 * u + eased * w * 0.75;
+  const tipY = base - 2 * u + eased * 14 * u;
+
+  ctx.strokeStyle = "#C08A5B";
+  ctx.lineWidth = 1 * u;
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.moveTo(tipX, tipY);
+  ctx.lineTo(tipX + 42 * u, tipY + 26 * u);
+  ctx.stroke();
+  ctx.fillStyle = "#8E4A2F";
+  ctx.beginPath();
+  ctx.arc(tipX, tipY, 1.1 * u, 0, 6.29);
+  ctx.fill();
+
+  const lick = wobble(t * 2) * 0.5 * u;
+  flame(ctx, tipX, tipY + 0.4 * u, lick, 2 * u, 7 * u, "#C9733E");
+  flame(ctx, tipX, tipY + 0.2 * u, lick, 1.2 * u, 4.6 * u, "#F3E0B0");
+}
 
 function drawDrop(ctx, s, x, y, r) {
   ctx.fillStyle = s.body;
