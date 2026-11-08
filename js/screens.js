@@ -430,7 +430,7 @@ const POUR_SYRUPS = [
 
 // Toppings shaken over the top. Every match is used.
 const POUR_TOPPINGS = [
-  [/cinnamon|pumpkin|gingerbread|chai|cappuccino/, "#8E4A2F"],  // cinnamon
+  [/cinnamon|pumpkin|gingerbread|chai/, "#8E4A2F"],  // cinnamon
   [/sugar/, "#EAD9B8"],                                         // sugar
   [/mocha|chocolate/, "#4F3327"],                               // cocoa
 ];
