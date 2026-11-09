@@ -1,6 +1,6 @@
 /* ==========================================================================
    ambient.js: the calm animated scene. It follows the season:
-   winter = snow, spring = rain on a window,
+   winter = a Christmas tree by a snowy window, spring = rain on a window,
    autumn = a candle, summer = dappled sunlight.
    Everything is measured in "u": one hundredth of the screen's shorter side.
    ========================================================================== */
@@ -41,30 +41,87 @@ function wobble(t) {
 }
 
 const SCENES = {
-  // --- Winter: slowly falling snow ------------------------------------------
+  // --- Winter: a Christmas tree by the window, with snow outside --------------
   winter: {
     setup(s, w, h, u, dark) {
-      s.top = dark ? "#2F3A33" : "#8FA39A";
-      s.bottom = dark ? "#3A2921" : "#B7C3BC";
-      s.dot = softDot("rgba(245, 238, 228, 1)");
-      s.flakes = Array.from({ length: 90 }, () => {
+      s.sky = dark ? "#26332C" : "#5F7A6E";
+      s.flakeDot = softDot("rgba(245, 238, 228, 1)");
+      s.bulbGlow = softDot("rgba(217, 164, 91, .75)");
+      s.bulbCore = softDot("rgba(243, 224, 176, 1)");
+
+      // Everything that never moves is drawn once, to keep the animation light
+      const floorY = h * 0.84;
+      const treeH = Math.min(h * 0.68, 92 * u);
+      const tree = { cx: w / 2, top: floorY - treeH, crownH: treeH - 7 * u, half: treeH * 0.42 };
+      const windowW = Math.min(w * 0.8, h);
+      s.win = { left: w / 2 - windowW / 2, right: w / 2 + windowW / 2, top: h * 0.07, bottom: floorY - 11 * u, r: windowW / 2 };
+      s.still = document.createElement("canvas");
+      s.still.width = w;
+      s.still.height = h;
+      const layer = s.still.getContext("2d");
+      drawRoom(layer, s.win, w, h, floorY, u, dark);
+      s.bulbs = drawTree(layer, tree, u);
+      drawPresents(layer, tree.cx, floorY, u);
+      s.star = { x: tree.cx, y: tree.top };
+
+      s.warmth = layerGlow(tree.cx, floorY - treeH * 0.55, treeH * 0.85, layer);
+      s.flakes = Array.from({ length: 60 }, () => {
         const depth = Math.random(); // 0 is far away, 1 is close
         return {
-          x: rand(0, w), y: rand(0, h), depth,
-          size: (1 + depth * 2.2) * u,
-          speed: (1.6 + depth * 4.5) * u,
+          x: rand(s.win.left, s.win.right), y: rand(s.win.top, s.win.bottom), depth,
+          size: (1 + depth * 2) * u,
+          speed: (2 + depth * 5) * u,
           phase: rand(0, 6.28),
         };
       });
+      s.w = w;
+      s.h = h;
     },
     draw(ctx, s, w, h, u, t, dt) {
-      paintSky(ctx, w, h, s.top, s.bottom);
+      updateTree(dt);
+
+      // Outside the window
+      ctx.fillStyle = s.sky;
+      ctx.fillRect(0, 0, w, h);
       for (const flake of s.flakes) {
         flake.y += flake.speed * dt;
-        if (flake.y > h + flake.size) { flake.y = -flake.size; flake.x = rand(0, w); }
+        if (flake.y > s.win.bottom) { flake.y = s.win.top - flake.size; flake.x = rand(s.win.left, s.win.right); }
         const x = flake.x + Math.sin(t * 0.35 + flake.phase) * 3 * u;
-        ctx.globalAlpha = 0.45 + flake.depth * 0.5;
-        ctx.drawImage(s.dot, x - flake.size / 2, flake.y - flake.size / 2, flake.size, flake.size);
+        ctx.globalAlpha = 0.5 + flake.depth * 0.45;
+        ctx.drawImage(s.flakeDot, x - flake.size / 2, flake.y - flake.size / 2, flake.size, flake.size);
+      }
+      ctx.globalAlpha = 1;
+
+      // The room has a window-shaped hole, so the snow shows through it
+      ctx.drawImage(s.still, 0, 0);
+
+      // The room dims when the lights are off, and is warm when they are on
+      ctx.fillStyle = `rgba(35, 24, 19, ${0.34 * (1 - treeLevel)})`;
+      ctx.fillRect(0, 0, w, h);
+      ctx.globalAlpha = treeLevel * 0.9;
+      ctx.fillStyle = s.warmth;
+      ctx.fillRect(0, 0, w, h);
+
+      // The lights come on from the bottom of the tree up
+      for (const bulb of s.bulbs) {
+        const lit = Math.min(1, Math.max(0, (treeLevel - bulb.height * 0.7) / 0.3));
+        if (!lit) continue;
+        const twinkle = 0.62 + 0.38 * Math.sin(t * bulb.speed + bulb.phase);
+        const glow = 4.6 * u;
+        ctx.globalAlpha = lit * twinkle * 0.8;
+        ctx.drawImage(s.bulbGlow, bulb.x - glow / 2, bulb.y - glow / 2, glow, glow);
+        ctx.globalAlpha = lit;
+        ctx.drawImage(s.bulbCore, bulb.x - u, bulb.y - u, 2 * u, 2 * u);
+      }
+
+      // The star is the last thing to light up
+      const star = Math.min(1, Math.max(0, (treeLevel - 0.8) / 0.2));
+      if (star) {
+        const glow = (17 + wobble(t * 0.7) * 1.5) * u;
+        ctx.globalAlpha = star * 0.7;
+        ctx.drawImage(s.bulbGlow, s.star.x - glow / 2, s.star.y - glow / 2, glow, glow);
+        ctx.globalAlpha = star;
+        drawStar(ctx, s.star.x, s.star.y, 5.4 * u, "#F3E0B0");
       }
       ctx.globalAlpha = 1;
     },
@@ -242,6 +299,7 @@ let candleSmokeWait = 0;
 let candleSmoke = [];
 
 function tapAmbient() {
+  if (currentSeason() === "winter") { treeIsLit = !treeIsLit; return; }
   if (currentSeason() !== "autumn" || candleMatch >= 0) return;
   if (candleIsLit) {
     candleIsLit = false;
@@ -252,6 +310,8 @@ function tapAmbient() {
 }
 
 function resetAmbient() {
+  treeIsLit = true;
+  treeLevel = 1;
   candleIsLit = true;
   candleFlame = 1;
   candleMatch = -1;
@@ -321,6 +381,215 @@ function drawMatch(ctx, cx, base, w, u, t) {
   const lick = wobble(t * 2) * 0.5 * u;
   flame(ctx, tipX, tipY + 0.4 * u, lick, 2 * u, 7 * u, "#C9733E");
   flame(ctx, tipX, tipY + 0.2 * u, lick, 1.2 * u, 4.6 * u, "#F3E0B0");
+}
+
+// --- The Christmas tree -----------------------------------------------------
+// Tap: the lights go out. Tap again: they climb back up the tree to the star.
+
+const TREE_TIERS = 5;
+const TREE_ON_TIME = 2.2;    // seconds for the lights to climb the tree
+const TREE_OFF_TIME = 0.5;   // seconds for them to go out
+
+let treeIsLit = true;
+let treeLevel = 1;           // 0 is dark, 1 is fully lit
+
+function updateTree(dt) {
+  treeLevel = treeIsLit
+    ? Math.min(1, treeLevel + dt / TREE_ON_TIME)
+    : Math.max(0, treeLevel - dt / TREE_OFF_TIME);
+}
+
+function layerGlow(x, y, radius, ctx) {
+  const glow = ctx.createRadialGradient(x, y, 0, x, y, radius);
+  glow.addColorStop(0, "rgba(217, 164, 91, .13)");
+  glow.addColorStop(1, "rgba(217, 164, 91, 0)");
+  return glow;
+}
+
+function windowPath(ctx, win) {
+  const cx = (win.left + win.right) / 2;
+  ctx.beginPath();
+  ctx.moveTo(win.left, win.bottom);
+  ctx.lineTo(win.left, win.top + win.r);
+  ctx.arc(cx, win.top + win.r, win.r, Math.PI, 0);
+  ctx.lineTo(win.right, win.bottom);
+  ctx.closePath();
+}
+
+function drawRoom(ctx, win, w, h, floorY, u, dark) {
+  ctx.fillStyle = dark ? "#2F463B" : "#CFD8D0";
+  ctx.fillRect(0, 0, w, h);
+  ctx.fillStyle = dark ? "#3A2921" : "#C9B49A";
+  ctx.fillRect(0, floorY, w, h - floorY);
+  ctx.fillStyle = dark ? "#4A362B" : "#E7D9C6";
+  ctx.fillRect(0, floorY - 2 * u, w, 2 * u); // skirting board
+
+  // Cut the window out of the wall
+  ctx.globalCompositeOperation = "destination-out";
+  windowPath(ctx, win);
+  ctx.fill();
+  ctx.globalCompositeOperation = "source-over";
+
+  // Snow piled against the bottom of the glass
+  ctx.save();
+  windowPath(ctx, win);
+  ctx.clip();
+  ctx.fillStyle = "#DCE3E1";
+  ctx.beginPath();
+  ctx.ellipse(win.left + (win.right - win.left) * 0.26, win.bottom + 2 * u, (win.right - win.left) * 0.42, 9 * u, 0, 0, 6.29);
+  ctx.ellipse(win.left + (win.right - win.left) * 0.76, win.bottom + 2 * u, (win.right - win.left) * 0.4, 6.5 * u, 0, 0, 6.29);
+  ctx.fill();
+  ctx.restore();
+
+  // The frame, and the wooden bars across the glass
+  const cx = (win.left + win.right) / 2;
+  ctx.strokeStyle = dark ? "#E7D9C6" : "#F5EEE4";
+  ctx.lineWidth = 2.2 * u;
+  windowPath(ctx, win);
+  ctx.stroke();
+  ctx.lineWidth = 1.3 * u;
+  ctx.beginPath();
+  ctx.moveTo(cx, win.top);
+  ctx.lineTo(cx, win.bottom);
+  ctx.moveTo(win.left, win.top + win.r);
+  ctx.lineTo(win.right, win.top + win.r);
+  ctx.stroke();
+  ctx.fillStyle = dark ? "#E7D9C6" : "#F5EEE4";
+  ctx.fillRect(win.left - 3 * u, win.bottom - 0.4 * u, win.right - win.left + 6 * u, 2.2 * u); // sill
+}
+
+// One layer of branches, with a soft wavy lower edge
+function tierPath(ctx, cx, top, bottom, half, scallops) {
+  ctx.beginPath();
+  ctx.moveTo(cx, top);
+  ctx.lineTo(cx + half, bottom);
+  const step = (half * 2) / scallops;
+  for (let i = 0; i < scallops; i++) {
+    const x = cx + half - step * i;
+    ctx.quadraticCurveTo(x - step / 2, bottom - step * 0.42, x - step, bottom);
+  }
+  ctx.closePath();
+}
+
+// Draws the tree and returns where its light bulbs go
+function drawTree(ctx, tree, u) {
+  const { cx, top, crownH, half } = tree;
+  const bulbs = [];
+  const crownBottom = top + crownH;
+
+  // Trunk
+  ctx.fillStyle = "#7A5642";
+  ctx.fillRect(cx - 3.4 * u, crownBottom - 3 * u, 6.8 * u, 10 * u);
+
+  // Biggest branches first, so the upper ones lie on top
+  for (let i = TREE_TIERS - 1; i >= 0; i--) {
+    const tierTop = top + crownH * (i / TREE_TIERS) * 0.8;
+    const tierBottom = top + crownH * ((i + 1) / TREE_TIERS);
+    const tierHalf = half * Math.pow((i + 1) / TREE_TIERS, 0.9);
+    const scallops = 3 + i * 2;
+
+    ctx.fillStyle = "rgba(35, 24, 19, .28)";
+    tierPath(ctx, cx, tierTop, tierBottom + 1.4 * u, tierHalf, scallops);
+    ctx.fill();
+
+    const leaves = ctx.createLinearGradient(cx - tierHalf, 0, cx + tierHalf, 0);
+    leaves.addColorStop(0, "#4D6B5A");
+    leaves.addColorStop(0.55, "#3F5A4C");
+    leaves.addColorStop(1, "#2F463B");
+    ctx.fillStyle = leaves;
+    tierPath(ctx, cx, tierTop, tierBottom, tierHalf, scallops);
+    ctx.fill();
+
+    // A dusting of snow on the tips of the branches
+    ctx.fillStyle = "#DCE3E1";
+    const step = (tierHalf * 2) / scallops;
+    for (let tip = 0; tip <= scallops; tip++) {
+      ctx.beginPath();
+      ctx.ellipse(cx + (tierHalf - step * tip) * 0.97, tierBottom - 0.5 * u, 0.85 * u, 0.5 * u, 0, 0, 6.29);
+      ctx.fill();
+    }
+
+    // The string of lights hangs across this layer
+    const tall = tierBottom - tierTop;
+    const y = tierTop + tall * 0.6;
+    const reach = tierHalf * 0.6;
+    const sag = tall * 0.22;
+    const count = 4 + i * 3;
+    ctx.strokeStyle = "#C08A5B";
+    ctx.lineWidth = 0.35 * u;
+    ctx.beginPath();
+    for (let n = 0; n <= 24; n++) {
+      const p = n / 12 - 1;
+      ctx.lineTo(cx + p * reach, y + sag * (1 - p * p));
+    }
+    ctx.stroke();
+    for (let n = 0; n < count; n++) {
+      const p = count === 1 ? 0 : (n / (count - 1)) * 2 - 1;
+      const bulb = {
+        x: cx + p * reach, y: y + sag * (1 - p * p),
+        height: 1 - (y - top) / crownH, // 0 at the bottom of the tree, 1 at the top
+        speed: rand(0.9, 2.2), phase: rand(0, 6.28),
+      };
+      bulbs.push(bulb);
+      ctx.fillStyle = "#8E4A2F"; // the bulb when it is off
+      ctx.beginPath();
+      ctx.arc(bulb.x, bulb.y, 0.7 * u, 0, 6.29);
+      ctx.fill();
+    }
+
+    // Baubles, just below the lights
+    const baubles = 2 + i;
+    for (let n = 0; n < baubles; n++) {
+      const p = ((n + 0.5) / baubles) * 2 - 1;
+      const x = cx + p * tierHalf * 0.72;
+      const ball = tierTop + tall * 0.9 - Math.abs(p) * tall * 0.1;
+      ctx.fillStyle = (n + i) % 2 ? "#D9A45B" : "#8F3A3E";
+      ctx.beginPath();
+      ctx.arc(x, ball, 1.5 * u, 0, 6.29);
+      ctx.fill();
+      ctx.fillStyle = "rgba(245, 238, 228, .55)";
+      ctx.beginPath();
+      ctx.arc(x - 0.45 * u, ball - 0.5 * u, 0.4 * u, 0, 6.29);
+      ctx.fill();
+    }
+  }
+
+  drawStar(ctx, cx, top, 5.4 * u, "#C08A5B"); // the star when it is off
+  return bulbs;
+}
+
+function drawStar(ctx, x, y, radius, color) {
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  for (let i = 0; i < 10; i++) {
+    const r = i % 2 ? radius * 0.45 : radius;
+    const angle = -Math.PI / 2 + (i * Math.PI) / 5;
+    ctx.lineTo(x + Math.cos(angle) * r, y + Math.sin(angle) * r);
+  }
+  ctx.closePath();
+  ctx.fill();
+}
+
+function drawPresents(ctx, cx, floorY, u) {
+  const present = (x, width, height, box, ribbon) => {
+    const y = floorY + 3 * u - height;
+    ctx.fillStyle = "rgba(35, 24, 19, .2)";
+    ctx.beginPath();
+    ctx.ellipse(x, floorY + 3 * u, width * 0.62, 1.4 * u, 0, 0, 6.29);
+    ctx.fill();
+    ctx.fillStyle = box;
+    ctx.fillRect(x - width / 2, y, width, height);
+    ctx.fillStyle = ribbon;
+    ctx.fillRect(x - 0.9 * u, y, 1.8 * u, height);
+    ctx.fillRect(x - width / 2, y + height * 0.42, width, 1.6 * u);
+    ctx.beginPath();
+    ctx.ellipse(x - 2.2 * u, y - 0.9 * u, 2.4 * u, 1.2 * u, 0.4, 0, 6.29);
+    ctx.ellipse(x + 2.2 * u, y - 0.9 * u, 2.4 * u, 1.2 * u, -0.4, 0, 6.29);
+    ctx.fill();
+  };
+  present(cx - 25 * u, 14 * u, 11 * u, "#8F3A3E", "#F5EEE4");
+  present(cx + 24 * u, 12 * u, 13 * u, "#DCE3E1", "#3F5A4C");
+  present(cx + 11 * u, 10 * u, 7.5 * u, "#C08A5B", "#8F3A3E");
 }
 
 function drawDrop(ctx, s, x, y, r) {
