@@ -124,4 +124,5 @@
 }
 .text-mode #stage [data-edit].is-chosen { outline-style: solid; outline-width: 2.5px; }
 .e-area { min-height: 240px; padding: 12px 14px; line-height: 1.5; resize: vertical; }
+.e-notes { min-height: 96px; padding: 12px 14px; line-height: 1.5; resize: vertical; }
 #text-hint { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }

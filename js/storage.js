@@ -6,6 +6,19 @@ const STORAGE_KEY = "coffee-corner";
 
 let nextDrinkId = 1;
 
+// The starter drinks from before the real menu: [name, price, description].
+// An older save still holding one of these, unchanged, gets the real menu instead.
+const OLD_STARTERS = [
+  ["oat flat white", 3, "small, smooth, silky"], ["vanilla cappuccino", 3, "with a cloud of foam"],
+  ["matcha latte", 4, "whisked slowly"], ["earl grey", 3, "bergamot and quiet"],
+  ["pumpkin spice latte", 5, "real pumpkin, warm spice"], ["maple cinnamon latte", 5, "maple syrup, cinnamon dust"],
+  ["chai latte", 4, "simmered with cardamom"], ["gingerbread latte", 5, "ginger, molasses, nutmeg"],
+  ["hot chocolate", 4, "thick and slow"], ["peppermint mocha", 5, "dark chocolate, cool mint"],
+  ["lavender latte", 4, "lightly floral"], ["sakura milk tea", 4, "soft pink and delicate"],
+  ["strawberry matcha", 5, "layered over ice"], ["iced matcha latte", 4, "cold, green, calm"],
+  ["iced peach tea", 3, "cold-brewed and golden"],
+];
+
 // The app's current content and settings. Every other file reads this.
 let state = loadState();
 
@@ -17,6 +30,25 @@ function text(value, fallback, maxLength) {
   return typeof value === "string" ? value.slice(0, maxLength) : fallback;
 }
 
+// Finds the number of kisses in anything: 3, "3" or "3 kisses". No number means 0.
+function parsePrice(value) {
+  const found = String(value === undefined || value === null ? "" : value).match(/\d+/);
+  return found ? Math.min(999, Number(found[0])) : 0;
+}
+
+// Older saves, one time: untouched starter drinks become the real menu.
+// Anything you changed or added yourself stays.
+function moveToRealMenu(drinks) {
+  const isOldStarter = (drink) => OLD_STARTERS.some(([name, price, description]) =>
+    drink.name === name && parsePrice(drink.price) === price && (!drink.description || drink.description === description));
+  const yours = drinks.filter((drink) => drink && typeof drink === "object" && !isOldStarter(drink));
+  const menu = DEFAULT_STATE.drinks.map((item) => {
+    const same = yours.find((drink) => drink.name === item.name);
+    return same ? { ...item, price: same.price, description: same.description } : item;
+  });
+  return [...menu, ...yours.filter((drink) => !menu.some((item) => item.name === drink.name))];
+}
+
 // Builds a complete, valid state from anything, filling gaps with defaults.
 // A damaged or partial backup can't break the app because of this.
 function cleanState(raw) {
@@ -24,17 +56,35 @@ function cleanState(raw) {
   const rawOrder = raw.order || {};
   const number = Math.floor(Number(rawOrder.number));
 
-  // Updates a drink from an older save, one time:
-  // prices become "3 kisses", and starter drinks gain their new descriptions.
-  const upgradeDrink = (drink) => {
-    if (raw.version >= 2 || !drink || typeof drink !== "object") return drink;
-    const starter = d.drinks.find((item) => item.name === drink.name);
-    const description = drink.description || (starter ? starter.description : "");
-    let price = drink.price;
-    if (raw.priceNote === undefined && starter) price = starter.price;
-    else if (raw.priceNote && /^\s*\d+\s*$/.test(price)) price = `${price.trim()} ${raw.priceNote}`;
-    return { ...drink, price, description };
-  };
+  const rawDrinks = Array.isArray(raw.drinks) ? raw.drinks : d.drinks;
+  const drinks = (raw.version >= 4 ? rawDrinks : moveToRealMenu(rawDrinks))
+    .filter((drink) => drink && typeof drink === "object")
+    .map((drink) => {
+      const listed = (Array.isArray(drink.seasons) ? drink.seasons : [])
+        .filter((season) => SEASONS.includes(season));
+      // Anything not tied to a real season counts as all-year
+      const seasons = listed.length && !(drink.seasons || []).includes("all") ? listed : ["all"];
+      const ownSeasons = seasons.includes("all") ? SEASONS : seasons;
+      return {
+        id: text(drink.id, "", 40) || makeDrinkId(),
+        name: text(drink.name, "", 60),
+        category: CATEGORIES.includes(drink.category) ? drink.category : "other",
+        seasons,
+        price: parsePrice(drink.price),
+        description: text(drink.description, "", 100),
+        // Older saves had one tick for the whole year
+        onBoard: Array.isArray(drink.onBoard)
+          ? drink.onBoard.filter((season) => SEASONS.includes(season))
+          : (drink.onBoard !== false ? [...ownSeasons] : []),
+        notes: text(drink.notes, "", 300),
+      };
+    });
+
+  // An older order may name a starter drink that has just gone away
+  const orderDrink = text(rawOrder.drink, d.order.drink, 60);
+  const orderDrinkIsGone = !(raw.version >= 4)
+    && OLD_STARTERS.some(([name]) => name === orderDrink)
+    && !drinks.some((drink) => drink.name === orderDrink);
 
   return {
     version: d.version,
@@ -65,27 +115,11 @@ function cleanState(raw) {
     },
     order: {
       number: number >= 1 ? Math.min(number, 99999) : 1,
-      drink: text(rawOrder.drink, d.order.drink, 60),
+      drink: orderDrinkIsGone ? d.order.drink : orderDrink,
       username: text(rawOrder.username, d.order.username, 40),
       note: text(rawOrder.note, d.order.note, 100),
     },
-    drinks: (Array.isArray(raw.drinks) ? raw.drinks : d.drinks)
-      .map(upgradeDrink)
-      .filter((drink) => drink && typeof drink === "object")
-      .map((drink) => {
-        const seasons = (Array.isArray(drink.seasons) ? drink.seasons : [])
-          .filter((season) => SEASONS.includes(season));
-        return {
-          id: text(drink.id, "", 40) || makeDrinkId(),
-          name: text(drink.name, "", 60),
-          category: CATEGORIES.includes(drink.category) ? drink.category : "other",
-          // Anything not tied to a real season counts as all-year
-          seasons: seasons.length && !(drink.seasons || []).includes("all") ? seasons : ["all"],
-          price: text(drink.price, "", 40),
-          description: text(drink.description, "", 100),
-          onBoard: drink.onBoard !== false,
-        };
-      }),
+    drinks,
   };
 }
 

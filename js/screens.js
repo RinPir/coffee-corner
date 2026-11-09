@@ -18,6 +18,12 @@ function pretty(value) {
   return esc(value).replace(/[♡♥❤]️?/g, HEART);
 }
 
+// The price as it appears on the posters. 0 means no price is shown.
+function priceText(price) {
+  if (!price) return "";
+  return price === 1 ? "1 kiss" : `${price} kisses`;
+}
+
 // Which season is showing right now
 function currentSeason() {
   if (state.season !== "auto") return state.season;
@@ -71,7 +77,7 @@ const SCREENS = [
 
 function renderMenu() {
   const drinks = drinksInSeason()
-    .filter((drink) => drink.onBoard)
+    .filter((drink) => drink.onBoard.includes(currentSeason()))
     .slice(0, MAX_ON_BOARD);
 
   const rows = drinks.map((drink) => `
@@ -79,7 +85,7 @@ function renderMenu() {
       <div class="menu-row">
         <span class="menu-name" ${editable(`drink:${drink.id}:name`)}>${pretty(drink.name)}</span>
         <span class="menu-dots"></span>
-        <span class="menu-price hand" ${editable(`drink:${drink.id}:price`)}>${pretty(drink.price)}</span>
+        <span class="menu-price hand" ${editable(`drink:${drink.id}:price`)}>${pretty(priceText(drink.price))}</span>
       </div>
       <p class="menu-desc" ${editable(`drink:${drink.id}:description`)}>${pretty(drink.description) || "&nbsp;"}</p>
     </li>`).join("");
@@ -149,7 +155,7 @@ function pickResultHtml() {
     <p class="pick-label hand" ${editable("labels.today")}>${pretty(state.labels.today)}</p>
     <h2 class="pick-name title" ${editable(`drink:${pickWinner.id}:name`)} ${fitAttrs(pickWinner.name, 5.4, 3.6)}></h2>
     ${pickWinner.description ? `<p class="pick-desc" ${editable(`drink:${pickWinner.id}:description`)}>${pretty(pickWinner.description)}</p>` : ""}
-    <p class="pick-price hand" ${editable(`drink:${pickWinner.id}:price`)}>${pretty(pickWinner.price)}</p>`;
+    <p class="pick-price hand" ${editable(`drink:${pickWinner.id}:price`)}>${pretty(priceText(pickWinner.price))}</p>`;
 }
 
 function renderPick() {
@@ -285,7 +291,7 @@ function shopCardHtml() {
     <div class="shop-cup">${cupArt(CUP_COLORS[drink.category] || CUP_COLORS.other)}</div>
     <h2 class="shop-name title" ${editable(`drink:${drink.id}:name`)} ${fitAttrs(drink.name, 3.8, 2.8)}></h2>
     ${drink.description ? `<p class="shop-desc" ${editable(`drink:${drink.id}:description`)}>${pretty(drink.description)}</p>` : ""}
-    <p class="shop-price hand" ${editable(`drink:${drink.id}:price`)}>${pretty(drink.price)}</p>
+    <p class="shop-price hand" ${editable(`drink:${drink.id}:price`)}>${pretty(priceText(drink.price))}</p>
     <div class="shop-btn" ${editable("labels.shopButton")}>${pretty(state.labels.shopButton)}</div>`;
 }
 
@@ -357,7 +363,7 @@ let payTimer = null;
 
 function orderPrice() {
   const drink = state.drinks.find((item) => item.name === state.order.drink);
-  return drink ? drink.price : "";
+  return drink ? priceText(drink.price) : "";
 }
 
 function kissesToPay() {
@@ -429,7 +435,7 @@ const POUR_COLORS = {
 const POUR_SYRUPS = [
   [/vanilla/, "#E6C98F"], [/caramel/, "#C08A5B"], [/maple/, "#B5712F"],
   [/lavender/, "#B8A9C9"], [/pumpkin/, "#C9733E"], [/ginger/, "#A5682F"],
-  [/mint/, "#A9C7B5"], [/strawberry/, "#D9808A"], [/peach/, "#F0B48E"], [/hazelnut/, "#A67C52"],
+  [/whitechoc/, "#EADFC8"], [/mint/, "#A9C7B5"], [/strawberry/, "#D9808A"], [/peach/, "#F0B48E"], [/hazelnut/, "#A67C52"],
 ];
 
 // Toppings shaken over the top. Every match is used.
@@ -442,18 +448,24 @@ const POUR_TOPPINGS = [
 // Turns a drink's name and note into a list of steps.
 // To teach it a new drink, add a line in the same style.
 function pourRecipeFor(order) {
-  const words = `${order.drink} ${order.note}`.toLowerCase().replace(/\bno\s+\w+/g, " "); // "no sugar" means none
+  const words = `${order.drink} ${order.note}`.toLowerCase().replace(/\bno\s+\w+/g, " ") // "no sugar" means none
+    .replace(/white chocolate/g, "whitechoc");                        // pale, so it isn't poured as dark chocolate
   const known = state.drinks.find((drink) => drink.name === order.drink);
   const category = known ? known.category : "";
   const { espresso, matcha, chocolate, chai, tea, sakura, other } = POUR_COLORS;
 
-  // Iced drinks go in a tall glass. The name, note or description can say so.
+  // Iced drinks go in a tall glass. The name, note, description or recipe can say so.
+  // "ice cream" is not ice, and "hot or iced" could be either.
+  const iceWords = `${words} ${known ? known.description : ""} ${known ? known.notes : ""}`.toLowerCase()
+    .replace(/ice cream|hot or iced/g, " ");
   const iced = /\bno ice\b/.test(order.note.toLowerCase()) ? false
-    : /\b(iced?|frappe|cold brew)\b/.test(`${words} ${known ? known.description : ""}`.toLowerCase());
+    : /\b(iced?|frappe|cold brew)\b/.test(iceWords);
   const milk = iced ? "#E9DAC2" : POUR_COLORS.milk; // pale milk would vanish in a clear glass
 
   let base;
   if (/matcha/.test(words) || category === "matcha") base = [[matcha, 1]];
+  else if (/pomegranate/.test(words)) base = [["#8F3A3E", 1]];
+  else if (/lemonade/.test(words)) base = [["#E8CF7C", 1]];
   else if (/mocha/.test(words)) base = [[espresso, .3], [chocolate, .7]];
   else if (/chocolate/.test(words) || category === "chocolate") base = [[chocolate, 1]];
   else if (/chai/.test(words)) base = [[chai, 1]];
@@ -462,7 +474,9 @@ function pourRecipeFor(order) {
   else if (/cappuccino/.test(words)) base = [[espresso, .3], [milk, .7]];
   else if (/flat white/.test(words)) base = [[espresso, .4], [milk, .6]];
   else if (/latte/.test(words)) base = [[milk, .7], [espresso, .3]];
-  else if (/americano|espresso/.test(words)) base = [[espresso, 1]];
+  else if (/sweet milk|affogato/.test(words)) base = [["#E9DAC2", .3], [espresso, .7]];
+  else if (/shaken/.test(words)) base = [[espresso, .65], [milk, .35]];
+  else if (/americano|espresso|pour over/.test(words)) base = [[espresso, 1]];
   else if (category === "coffee" || !category) base = [[espresso, .35], [milk, .65]];
   else base = [[other, 1]];
 

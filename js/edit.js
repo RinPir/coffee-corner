@@ -87,7 +87,7 @@ function orderView() {
 // --- Drinks tab -------------------------------------------------------------
 
 function drinksView() {
-  const onBoard = drinksInSeason().filter((drink) => drink.onBoard).length;
+  const onBoard = drinksInSeason().filter((drink) => drink.onBoard.includes(currentSeason())).length;
   const hint = onBoard > MAX_ON_BOARD
     ? `${onBoard} drinks are ticked for ${currentSeason()}. The board shows the first ${MAX_ON_BOARD} in this list.`
     : `On the board for ${currentSeason()}: ${onBoard} of ${MAX_ON_BOARD}.`;
@@ -100,26 +100,34 @@ function drinksView() {
 
 function drinkCard(drink) {
   const summary = drink.seasons.includes("all") ? "all year" : drink.seasons.join(", ");
+  const boardSummary = drink.onBoard.length ? `on board: ${drink.onBoard.join(", ")} · ` : "";
   const head = `<button class="e-drink-head" data-toggle-drink="${drink.id}">
       <span>${esc(drink.name) || "new drink"}</span>
-      <small>${drink.onBoard ? "on board · " : ""}${summary}</small>
+      <small>${boardSummary}${summary}</small>
     </button>`;
   if (drink.id !== openDrinkId) return `<div class="e-drink">${head}</div>`;
 
   const seasonChips = [["all", "all year"], ...SEASONS.map((season) => [season, season])].map(([value, label]) =>
     `<button class="e-chip ${drink.seasons.includes(value) ? "on" : ""}" data-drink-season="${value}">${label}</button>`).join("");
 
+  // One tick per season, so a drink can be on the autumn board but not the summer one
+  const boardSeasons = drink.seasons.includes("all") ? SEASONS : drink.seasons;
+  const boardChips = boardSeasons.map((season) =>
+    `<button class="e-chip ${drink.onBoard.includes(season) ? "on" : ""}" data-drink-board="${season}">${season}</button>`).join("");
+
   return `<div class="e-drink" data-drink="${drink.id}">${head}
     <div class="e-drink-form">
       ${field("name", "drink.name", drink.name)}
-      ${field("price", "drink.price", drink.price, "3 kisses")}
+      <label class="e-field"><span>price in kisses</span>
+        <input class="e-input" data-field="drink.price" type="number" inputmode="numeric" min="0" max="999" value="${drink.price || ""}" placeholder="3"></label>
       ${field("short description (optional)", "drink.description", drink.description)}
       <label class="e-field"><span>category</span>
         <select class="e-select" data-field="drink.category">${CATEGORIES.map((category) =>
           `<option ${category === drink.category ? "selected" : ""}>${category}</option>`).join("")}</select></label>
       <div class="e-field"><span>seasons</span><div class="e-chips">${seasonChips}</div></div>
-      <label class="e-switch"><span>show on the menu board</span>
-        <input type="checkbox" data-field="drink.onBoard" ${drink.onBoard ? "checked" : ""}></label>
+      <div class="e-field"><span>on the menu board in</span><div class="e-chips">${boardChips}</div></div>
+      <label class="e-field"><span>recipe notes (only you see these)</span>
+        <textarea class="e-input e-notes" data-field="drink.notes">${esc(drink.notes)}</textarea></label>
       <button class="e-btn danger" data-action="delete-drink">delete this drink</button>
     </div></div>`;
 }
@@ -216,6 +224,7 @@ editPanel.addEventListener("click", async (event) => {
   else if (data.pickDrink !== undefined) { state.order.drink = data.pickDrink; save(); }
   else if (data.toggleDrink) { openDrinkId = openDrinkId === data.toggleDrink ? null : data.toggleDrink; }
   else if (data.drinkSeason) { toggleDrinkSeason(data.drinkSeason); save(); }
+  else if (data.drinkBoard) { toggleDrinkBoard(data.drinkBoard); save(); }
   else if (data.action === "close") { closeEdit(); return; }
   else if (data.action === "next-order") {
     state.order = { number: Math.min(state.order.number + 1, 99999), drink: "", username: "", note: "" };
@@ -223,7 +232,7 @@ editPanel.addEventListener("click", async (event) => {
   }
   else if (data.action === "reset-counter") { state.order.number = 1; save(); }
   else if (data.action === "add-drink") {
-    const drink = { id: makeDrinkId(), name: "", category: "coffee", seasons: ["all"], price: "", description: "", onBoard: true };
+    const drink = { id: makeDrinkId(), name: "", category: "coffee", seasons: ["all"], price: 0, description: "", onBoard: [currentSeason()], notes: "" };
     state.drinks.unshift(drink);
     openDrinkId = drink.id;
     editPanel.scrollTop = 0;
@@ -254,6 +263,15 @@ function toggleDrinkSeason(season) {
   const list = drink.seasons.filter((item) => item !== "all");
   drink.seasons = list.includes(season) ? list.filter((item) => item !== season) : [...list, season];
   if (!drink.seasons.length) drink.seasons = ["all"];
+  // A tick can't stay on for a season the drink has left
+  if (!drink.seasons.includes("all")) drink.onBoard = drink.onBoard.filter((item) => drink.seasons.includes(item));
+}
+
+function toggleDrinkBoard(season) {
+  const drink = currentDrink();
+  drink.onBoard = drink.onBoard.includes(season)
+    ? drink.onBoard.filter((item) => item !== season)
+    : [...drink.onBoard, season];
 }
 
 // Typing doesn't redraw the panel, so the keyboard stays open
@@ -274,7 +292,7 @@ editPanel.addEventListener("input", (event) => {
   else if (["cafeName", "subtitle", "signOpen", "signOpenNote", "signClosed", "signClosedNote"].includes(name)) state[name] = input.value;
   else if (name && name.startsWith("drink.")) {
     const key = name.split(".")[1];
-    currentDrink()[key] = key === "onBoard" ? input.checked : input.value;
+    currentDrink()[key] = key === "price" ? parsePrice(input.value) : input.value;
   }
   else if (input.dataset.screenToggle) {
     state.screens[input.dataset.screenToggle] = input.checked;
@@ -306,8 +324,6 @@ editPanel.addEventListener("change", async (event) => {
     }
     drawEdit();
   }
-  // Redraw the card's title once the name is finished
-  if (input.dataset.field === "drink.onBoard") drawEdit();
 });
 
 // --- Changing text right on the poster --------------------------------------
@@ -339,7 +355,7 @@ function readText(path) {
 function writeText(path, value) {
   if (path.startsWith("drink:")) {
     const [, id, key] = path.split(":");
-    drinkById(id)[key] = value;
+    drinkById(id)[key] = key === "price" ? parsePrice(value) : value;
   }
   else if (path === "order.number") {
     const number = Math.floor(Number(value));
@@ -364,7 +380,7 @@ function chooseText(path) {
   textHint.hidden = true;
   textInput.hidden = false;
   textInput.value = readText(path);
-  textInput.inputMode = path === "order.number" ? "numeric" : "text";
+  textInput.inputMode = path === "order.number" || path.endsWith(":price") ? "numeric" : "text";
   textInput.focus(); // has to happen during the tap, or the iPad won't show the keyboard
   outlineChosenText();
 }
